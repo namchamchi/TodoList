@@ -1,36 +1,58 @@
 pipeline {
     agent any
 
+    environment {
+        // Đặt biến môi trường nếu cần, ví dụ:
+        PROJECT_NAME = 'my-app'
+    }
+
+    triggers {
+        // Tự động chạy khi có push lên Git
+        pollSCM('* * * * *') // mỗi phút kiểm tra SCM thay đổi (nên dùng webhook thay vì poll nếu có thể)
+    }
+
     stages {
-        stage('Clone') {
+        stage('Checkout') {
             steps {
-                echo '🌀 Cloning repository...'
-                // Nếu Jenkins đã checkout repo từ SCM, dòng này không cần
-                // git url: 'https://github.com/namchamchi/TodoList.git', credentialsId: 'github-pat'
+                echo '🔄 Checking out code...'
+                checkout scm
             }
         }
 
-        stage('Build') {
+        stage('Install Dependencies') {
             steps {
-                echo '🏗️ Running build step...'
-                sh 'echo "Build step executed!"'
+                echo '📦 Installing dependencies...'
+                // Ví dụ với Node.js
+                sh 'npm install'
             }
         }
 
-        stage('Test') {
+        stage('Run Tests') {
             steps {
-                echo '🧪 Running test step...'
-                sh 'echo "Test step executed!"'
+                echo '🧪 Running tests...'
+                // Chạy test, ví dụ với Jest
+                sh 'npm test'
+            }
+        }
+
+        stage('Post-Test Actions') {
+            steps {
+                echo '✅ Tests completed.'
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Pipeline executed successfully!'
+        always {
+            echo '🧹 Cleaning up...'
         }
+
+        success {
+            echo '🎉 Build succeeded!'
+        }
+
         failure {
-            echo '❌ Pipeline failed.'
+            echo '💥 Build failed.'
         }
     }
 }
