@@ -2,27 +2,24 @@ pipeline {
     agent any
 
     environment {
-        // Đặt biến môi trường nếu cần, ví dụ:
-        PROJECT_NAME = 'my-app'
+        NODE_ENV = 'development'
     }
 
-    triggers {
-        // Tự động chạy khi có push lên Git
-        pollSCM('* * * * *') // mỗi phút kiểm tra SCM thay đổi (nên dùng webhook thay vì poll nếu có thể)
+    tools {
+        nodejs 'NodeJS 20.1.0' // Chỉnh theo version bạn đã cài trong Jenkins
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone') {
             steps {
-                echo '🔄 Checking out code...'
-                checkout scm
+                echo '🌀 Cloning repository...'
+                // Nếu dùng "Pipeline from SCM", Jenkins tự clone rồi, không cần dòng git này.
             }
         }
 
         stage('Install Dependencies') {
             steps {
                 echo '📦 Installing dependencies...'
-                // Ví dụ với Node.js
                 sh 'npm install'
             }
         }
@@ -30,29 +27,24 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo '🧪 Running tests...'
-                // Chạy test, ví dụ với Jest
-                sh 'npm test'
+                sh 'npm test' // hoặc `npx jest`, `npm run test`, tuỳ setup
             }
         }
 
-        stage('Post-Test Actions') {
+        stage('Build') {
             steps {
-                echo '✅ Tests completed.'
+                echo '🏗️ Building app...'
+                sh 'npm run build' // Nếu bạn có bước build, ví dụ với React/Next
             }
         }
     }
 
     post {
-        always {
-            echo '🧹 Cleaning up...'
-        }
-
         success {
-            echo '🎉 Build succeeded!'
+            echo '✅ Build and test completed successfully!'
         }
-
         failure {
-            echo '💥 Build failed.'
+            echo '❌ Build or test failed.'
         }
     }
 }
