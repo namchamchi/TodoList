@@ -3,17 +3,18 @@ pipeline {
 
     environment {
         NODE_ENV = 'development'
+        SONARQUBE_TOKEN = credentials('sonarqube-token')
     }
 
     tools {
-        nodejs 'NodeJS 20.1.0' // Chỉnh theo version bạn đã cài trong Jenkins
+        nodejs 'NodeJS 20.1.0' // version trong Jenkins
     }
 
     stages {
         stage('Clone') {
             steps {
                 echo '🌀 Cloning repository...'
-                // Nếu dùng "Pipeline from SCM", Jenkins tự clone rồi, không cần dòng git này.
+                checkout scm
             }
         }
 
@@ -27,14 +28,31 @@ pipeline {
         stage('Run Tests') {
             steps {
                 echo '🧪 Running tests...'
-                sh 'npm test' // hoặc `npx jest`, `npm run test`, tuỳ setup
+                sh 'npm test' 
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo '🔍 Running SonarQube analysis...'
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        sonar-scanner \
+                        -Dsonar.projectKey=todo-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://localhost:9000 \
+                        -Dsonar.login=${SONARQUBE_TOKEN} \
+                        -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                        -Dsonar.testExecutionReportPaths=coverage/test-report.xml
+                    '''
+                }
             }
         }
 
         stage('Build') {
             steps {
                 echo '🏗️ Building app...'
-                sh 'npm run build' // Nếu bạn có bước build, ví dụ với React/Next
+                sh 'npm run build' 
             }
         }
     }
