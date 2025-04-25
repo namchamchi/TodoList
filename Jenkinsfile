@@ -3,7 +3,9 @@ pipeline {
 
     environment {
         NODE_ENV = 'development'
-        SONARQUBE_TOKEN = credentials('sonarqube-token')
+        DOCKER_IMAGE = 'todo-app'
+        DOCKER_TAG = "${BUILD_NUMBER}"
+        DOCKER_REGISTRY = 'your-docker-registry'
     }
 
     tools {
@@ -11,67 +13,113 @@ pipeline {
     }
 
     stages {
-        stage('Clone') {
+        stage('Checkout') {
             steps {
                 echo '🌀 Cloning repository...'
                 checkout scm
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Build and Test') {
             steps {
                 echo '📦 Installing dependencies...'
                 sh 'npm install'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
                 echo '🧪 Running tests...'
-                sh 'npm test' 
+                sh 'npm test'
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Build Docker Image') {
             steps {
-                echo '🔍 Running SonarQube analysis...'
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                        -Dsonar.projectKey=todo-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.host.url=http://localhost:9000 \
-                        -Dsonar.login=${SONARQUBE_TOKEN} \
-                        -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                        -Dsonar.testExecutionReportPaths=coverage/test-report.xml
-                    '''
+                echo '🐳 Building Docker image...'
+                script {
+                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Push Docker Image') {
             steps {
-                echo '🔍 Waiting for SonarQube analysis to complete...'
-                timeout(time: 1, unit: 'HOURS') {
-                    waitForQualityGate abortPipeline: true
+                script {
+                    docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
+                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                    }
                 }
             }
         }
 
-        stage('Build') {
+        stage('Deploy to Staging') {
             steps {
-                echo '🏗️ Building app...'
-                sh 'npm run build' 
+                script {
+                    // Deploy to staging environment
+                    sh "kubectl apply -f k8s/staging-deployment.yaml"
+                    sh "kubectl apply -f k8s/staging-service.yaml"
+                }
+            }
+        }
+
+        stage('Verify Staging') {
+            steps {
+                script {
+                    // Wait for deployment to be ready
+                    sh "kubectl rollout status deployment/todo-app-staging"
+                    
+                    // Run integration tests against staging
+                    sh "npm run test:integration"
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                script {
+                    // Deploy to production environment
+                    sh "kubectl apply -f k8s/production-deployment.yaml"
+                    sh "kubectl apply -f k8s/production-service.yaml"
+                }
+            }
+        }
+
+        stage('Verify Production') {
+            steps {
+                script {
+                    // Wait for deployment to be ready
+                    sh "kubectl rollout status deployment/todo-app-production"
+                    
+                    // Run smoke tests against production
+                    sh "npm run test:smoke"
+                }
             }
         }
     }
 
     post {
+        always {
+            echo '🧹 Cleaning up...'
+            sh '''
+                # Xóa các container tạm thời
+                docker ps -a | grep test-container && docker rm -f test-container || true
+                
+                # Xóa các image không sử dụng
+                docker system prune -f
+            '''
+        }
         success {
-            echo '✅ Build and test completed successfully!'
+            echo '✅ Build completed successfully!'
+            archiveArtifacts artifacts: '*.tar', fingerprint: true
+            // Tag the Docker image as latest
+            script {
+                docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
+                    docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                }
+            }
         }
         failure {
-            echo '❌ Build or test failed.'
+            echo '❌ Build failed.'
+            // Rollback to previous version
+            script {
+                sh "kubectl rollout undo deployment/todo-app-production"
+            }
         }
     }
 }

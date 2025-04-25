@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest --coverage",
     "build": "echo \"Nothing to build for now\"",
-    "sonar": "sonarqube-scanner"
+    "sonar": "sonarqube-scanner -Dsonar.projectKey=todo-app -Dsonar.sources=. -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.testExecutionReportPaths=coverage/test-report.xml"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +18,7 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.1.9",
-    "sonarqube-scanner": "^2.9.1",
+    "sonarqube-scanner": "^2.8.1",
     "supertest": "^7.1.0"
   }
 }
