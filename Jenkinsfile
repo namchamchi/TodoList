@@ -6,8 +6,8 @@ pipeline {
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_USERNAME = credentials('DOCKER_HUB_USERNAME')
-        DOCKER_PASSWORD = credentials('DOCKER_HUB_PASSWORD')
+        DOCKER_USERNAME = credentials('namchamchi')
+        DOCKER_PASSWORD = credentials('dckr_pat_O0pPtQQIw49vc_bjLMg4oh48kBc')
     }
 
     tools {
