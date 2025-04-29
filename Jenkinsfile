@@ -5,7 +5,9 @@ pipeline {
         NODE_ENV = 'development'
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
-        DOCKER_REGISTRY = 'your-docker-registry'
+        DOCKER_REGISTRY = 'docker.io'
+        DOCKER_USERNAME = credentials('DOCKER_HUB_USERNAME')
+        DOCKER_PASSWORD = credentials('DOCKER_HUB_PASSWORD')
     }
 
     tools {
@@ -33,7 +35,19 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    docker.build("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                echo '📤 Pushing to Docker Hub...'
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
+                        docker.image("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                        docker.image("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                    }
                 }
             }
         }
@@ -42,7 +56,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
+                        docker.withRegistry('https://${DOCKER_REGISTRY}', 'dockerhub-jenkins-token') {
                             docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
                         }
                     } catch (Exception e) {
@@ -111,15 +125,6 @@ pipeline {
         }
         success {
             echo '✅ Build completed successfully!'
-            script {
-                try {
-                    docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
-                        docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
-                    }
-                } catch (Exception e) {
-                    echo '⚠️ Docker push skipped...'
-                }
-            }
         }
         failure {
             echo '❌ Build failed.'
