@@ -38,19 +38,6 @@ pipeline {
             }
         }
 
-        stage('Create Artifacts') {
-            steps {
-                echo '📦 Creating artifacts...'
-                sh '''
-                    # Tạo thư mục artifacts nếu chưa tồn tại
-                    mkdir -p artifacts
-                    
-                    # Tạo file tar từ thư mục hiện tại
-                    tar -czf artifacts/build-${BUILD_NUMBER}.tar.gz .
-                '''
-            }
-        }
-
         stage('Push Docker Image') {
             steps {
                 script {
@@ -124,7 +111,6 @@ pipeline {
         }
         success {
             echo '✅ Build completed successfully!'
-            archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
             script {
                 try {
                     docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
