@@ -32,9 +32,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
-                }
+                sh 'sudo docker build -t todo-app:${BUILD_NUMBER} .'
             }
         }
 
