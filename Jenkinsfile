@@ -38,6 +38,19 @@ pipeline {
             }
         }
 
+        stage('Create Artifacts') {
+            steps {
+                echo '📦 Creating artifacts...'
+                sh '''
+                    # Tạo thư mục artifacts nếu chưa tồn tại
+                    mkdir -p artifacts
+                    
+                    # Tạo file tar từ thư mục hiện tại
+                    tar -czf artifacts/build-${BUILD_NUMBER}.tar.gz .
+                '''
+            }
+        }
+
         stage('Push Docker Image') {
             steps {
                 script {
@@ -108,23 +121,10 @@ pipeline {
     post {
         always {
             echo '🧹 Cleaning up...'
-            script {
-                try {
-                    sh '''
-                        # Xóa các container tạm thời
-                        docker ps -a | grep test-container && docker rm -f test-container || true
-                        
-                        # Xóa các image không sử dụng
-                        docker system prune -f
-                    '''
-                } catch (Exception e) {
-                    echo '⚠️ Cleanup skipped...'
-                }
-            }
         }
         success {
             echo '✅ Build completed successfully!'
-            archiveArtifacts artifacts: '*.tar', fingerprint: true
+            archiveArtifacts artifacts: 'artifacts/*.tar.gz', fingerprint: true
             script {
                 try {
                     docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
