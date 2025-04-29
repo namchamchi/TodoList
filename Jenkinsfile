@@ -23,16 +23,16 @@ pipeline {
         stage('Build and Test') {
             steps {
                 echo '📦 Installing dependencies...'
-                sh 'cd backend && npm install'
+                sh 'npm install'
                 echo '🧪 Running tests...'
-                sh 'cd backend && npm test'
+                sh 'npm test'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh 'docker build -t todo-app:${BUILD_NUMBER} backend/'
+                sh 'docker build -t todo-app:${BUILD_NUMBER} .'
             }
         }
 
@@ -68,7 +68,7 @@ pipeline {
                 script {
                     try {
                         sh "kubectl rollout status deployment/todo-app-staging"
-                        sh "cd backend && npm run test:integration"
+                        sh "npm run test:integration"
                     } catch (Exception e) {
                         echo '⚠️ Verification skipped...'
                     }
@@ -94,7 +94,7 @@ pipeline {
                 script {
                     try {
                         sh "kubectl rollout status deployment/todo-app-production"
-                        sh "cd backend && npm run test:smoke"
+                        sh "npm run test:smoke"
                     } catch (Exception e) {
                         echo '⚠️ Verification skipped...'
                     }
@@ -122,7 +122,7 @@ pipeline {
         }
         success {
             echo '✅ Build completed successfully!'
-            archiveArtifacts artifacts: 'backend/*.tar', fingerprint: true
+            archiveArtifacts artifacts: '*.tar', fingerprint: true
             script {
                 try {
                     docker.withRegistry('https://${DOCKER_REGISTRY}', 'docker-credentials') {
