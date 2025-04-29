@@ -6,8 +6,6 @@ pipeline {
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
-        DOCKER_USERNAME = credentials('namchamchi')
-        DOCKER_PASSWORD = credentials('dckr_pat_O0pPtQQIw49vc_bjLMg4oh48kBc')
     }
 
     tools {
@@ -35,7 +33,7 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 script {
-                    docker.build("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                    docker.build("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}")
                 }
             }
         }
@@ -44,9 +42,9 @@ pipeline {
             steps {
                 echo '📤 Pushing to Docker Hub...'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-credentials') {
-                        docker.image("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-jenkins-token') {
+                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
                     }
                 }
             }
