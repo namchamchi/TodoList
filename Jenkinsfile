@@ -66,27 +66,36 @@ pipeline {
 
         stage('Deploy to Staging') {
             steps {
-                script {
-                    try {
-                        sh "kubectl apply -f k8s/staging-deployment.yaml"
-                        sh "kubectl apply -f k8s/staging-service.yaml"
-                    } catch (Exception e) {
-                        echo '⚠️ Deployment to staging skipped...'
-                    }
-                }
+                echo '🚀 Deploying to staging...'
+                sh '''
+                    # Pull latest image
+                    docker pull namchamchi/todo-app:latest
+                    
+                    # Stop and remove existing containers
+                    docker-compose down || true
+                    
+                    # Start new containers
+                    docker-compose up -d
+                    
+                    # Wait for application to be ready
+                    sleep 10
+                    
+                    # Verify deployment
+                    curl -f http://localhost:3000 || exit 1
+                '''
             }
         }
 
         stage('Verify Staging') {
             steps {
-                script {
-                    try {
-                        sh "kubectl rollout status deployment/todo-app-staging"
-                        sh "npm run test:integration"
-                    } catch (Exception e) {
-                        echo '⚠️ Verification skipped...'
-                    }
-                }
+                echo '🔍 Verifying staging deployment...'
+                sh '''
+                    # Check container status
+                    docker ps | grep todo-app
+                    
+                    # Check application health
+                    curl -f http://localhost:3000/api/todos || exit 1
+                '''
             }
         }
 
@@ -122,10 +131,11 @@ pipeline {
             echo '🧹 Cleaning up...'
         }
         success {
-            echo '✅ Build completed successfully!'
+            echo '✅ Build and deployment completed successfully!'
         }
         failure {
-            echo '❌ Build failed.'
+            echo '❌ Build or deployment failed.'
+            sh 'docker-compose down || true'
             script {
                 try {
                     sh "kubectl rollout undo deployment/todo-app-production"
