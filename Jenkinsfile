@@ -6,8 +6,7 @@ pipeline {
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
-        EMAIL_RECIPIENTS = 'your-email@example.com'
-        EMAIL_CREDENTIALS = 'jenkins-email-credentials'
+        EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
     }
 
     tools {
@@ -154,8 +153,7 @@ pipeline {
                 """,
                 recipientProviders: [[$class: 'DevelopersRecipientProvider']],
                 to: "${env.EMAIL_RECIPIENTS}",
-                mimeType: 'text/html',
-                credentialsId: "${env.EMAIL_CREDENTIALS}"
+                mimeType: 'text/html'
             )
         }
         success {
