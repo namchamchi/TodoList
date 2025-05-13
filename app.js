@@ -3,6 +3,7 @@ const todoRoutes = require('./routes/todoRoutes');
 const app = express();
 
 app.use(express.json());
+app.use(express.static('public')); // Serve static files from public directory
 app.use('/api/todos', todoRoutes);
 
 // Only start the server if this file is run directly

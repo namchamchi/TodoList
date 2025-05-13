@@ -20,13 +20,12 @@ exports.getTodoById = (req, res) => {
 };
 
 exports.createTodo = (req, res) => {
-  const { title, description } = req.body;
-  if (!title) return res.status(400).json({ message: 'Title is required' });
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ message: 'Text is required' });
 
   const newTodo = {
     id: uuidv4(),
-    title,
-    description: description || '',
+    text,
     completed: false,
     createdAt: new Date().toISOString()
   };
@@ -39,9 +38,7 @@ exports.updateTodo = (req, res) => {
   const todo = todos.find(t => t.id === req.params.id);
   if (!todo) return res.status(404).json({ message: 'Todo not found' });
 
-  const { title, description, completed } = req.body;
-  if (title !== undefined) todo.title = title;
-  if (description !== undefined) todo.description = description;
+  const { completed } = req.body;
   if (completed !== undefined) todo.completed = completed;
 
   saveTodos();
