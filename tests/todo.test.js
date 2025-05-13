@@ -33,14 +33,14 @@ describe('Todo API Tests', () => {
       // First create a todo to get its ID
       const createResponse = await request(app)
         .post('/api/todos')
-        .send({ title: 'Test Todo' });
+        .send({ text: 'Test Todo' });
       
       const todoId = createResponse.body.id;
       const response = await request(app).get(`/api/todos/${todoId}`);
       
       expect(response.status).toBe(200);
       expect(response.body.id).toBe(todoId);
-      expect(response.body.title).toBe('Test Todo');
+      expect(response.body.text).toBe('Test Todo');
     });
 
     it('should return 404 when todo does not exist', async () => {
@@ -53,8 +53,7 @@ describe('Todo API Tests', () => {
   describe('POST /api/todos', () => {
     it('should create a new todo', async () => {
       const newTodo = {
-        title: 'New Test Todo',
-        description: 'Test Description'
+        text: 'New Test Todo'
       };
 
       const response = await request(app)
@@ -62,20 +61,19 @@ describe('Todo API Tests', () => {
         .send(newTodo);
 
       expect(response.status).toBe(201);
-      expect(response.body.title).toBe(newTodo.title);
-      expect(response.body.description).toBe(newTodo.description);
+      expect(response.body.text).toBe(newTodo.text);
       expect(response.body.completed).toBe(false);
       expect(response.body.id).toBeDefined();
       expect(response.body.createdAt).toBeDefined();
     });
 
-    it('should return 400 when title is missing', async () => {
+    it('should return 400 when text is missing', async () => {
       const response = await request(app)
         .post('/api/todos')
-        .send({ description: 'No title' });
+        .send({});
 
       expect(response.status).toBe(400);
-      expect(response.body.message).toBe('Title is required');
+      expect(response.body.message).toBe('Text is required');
     });
   });
 
@@ -84,13 +82,11 @@ describe('Todo API Tests', () => {
       // First create a todo
       const createResponse = await request(app)
         .post('/api/todos')
-        .send({ title: 'Todo to Update' });
+        .send({ text: 'Todo to Update' });
       
       const todoId = createResponse.body.id;
       
       const updateData = {
-        title: 'Updated Title',
-        description: 'Updated Description',
         completed: true
       };
 
@@ -99,15 +95,13 @@ describe('Todo API Tests', () => {
         .send(updateData);
 
       expect(response.status).toBe(200);
-      expect(response.body.title).toBe(updateData.title);
-      expect(response.body.description).toBe(updateData.description);
       expect(response.body.completed).toBe(updateData.completed);
     });
 
     it('should return 404 when updating non-existent todo', async () => {
       const response = await request(app)
         .put('/api/todos/nonexistent-id')
-        .send({ title: 'Updated Title' });
+        .send({ completed: true });
 
       expect(response.status).toBe(404);
       expect(response.body.message).toBe('Todo not found');
@@ -119,7 +113,7 @@ describe('Todo API Tests', () => {
       // First create a todo
       const createResponse = await request(app)
         .post('/api/todos')
-        .send({ title: 'Todo to Delete' });
+        .send({ text: 'Todo to Delete' });
       
       const todoId = createResponse.body.id;
       
