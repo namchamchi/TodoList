@@ -130,47 +130,42 @@ pipeline {
     post {
         always {
             echo '🧹 Cleaning up...'
-            // mail bcc: '', body: 'test', cc: 'covodoi01@gmail.com', from: '', replyTo: '', subject: 'helllo world', to: 'covodoi09@gmail.com'
-            // script {
-            //     def deploymentStatus = ''
-            //     try {
-            //         deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
-            //     } catch (Exception e) {
-            //         deploymentStatus = 'No deployment status available'
-            //     }
+            script {
+                def deploymentStatus = ''
+                try {
+                    deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
+                } catch (Exception e) {
+                    deploymentStatus = 'No deployment status available'
+                }
                 
-            //     emailext (
-            //         subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-            //         body: """
-            //             <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
-            //             <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
-            //             <p>Build URL: ${env.BUILD_URL}</p>
-            //             <p>Build Number: ${env.BUILD_NUMBER}</p>
-            //             <p>Build Status: ${currentBuild.currentResult}</p>
-            //             <p>Changes:</p>
-            //             <ul>
-            //                 ${currentBuild.changeSets.collect { changeSet ->
-            //                     changeSet.items.collect { item ->
-            //                         "<li>${item.commitId} - ${item.msg} (${item.author.fullName})</li>"
-            //                     }.join('')
-            //                 }.join('')}
-            //             </ul>
-            //             <p>Test Results:</p>
-            //             <pre>${currentBuild.description ?: 'No test results available'}</pre>
-            //             <p>Deployment Status:</p>
-            //             <pre>${deploymentStatus}</pre>
-            //         """,
-            //         recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-            //         to: "${env.EMAIL_RECIPIENTS}",
-            //         mimeType: 'text/html'
-            //     )
-            // }
-            emailext (
-    subject: "Test email",
-    body: "This is a test.",
-    to: 'covodoi01@gmail.com, covodoi09@gmail.com'
-)           
+                def emailBody = """
+                    <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
+                    <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
+                    <p>Build URL: ${env.BUILD_URL}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build Status: ${currentBuild.currentResult}</p>
+                    <p>Changes:</p>
+                    <ul>
+                        ${currentBuild.changeSets.collect { changeSet ->
+                            changeSet.items.collect { item ->
+                                "<li>${item.commitId} - ${item.msg} (${item.author.fullName})</li>"
+                            }.join('')
+                        }.join('')}
+                    </ul>
+                    <p>Test Results:</p>
+                    <pre>${currentBuild.description ?: 'No test results available'}</pre>
+                    <p>Deployment Status:</p>
+                    <pre>${deploymentStatus}</pre>
+                """
 
+                mail(
+                    to: "${env.EMAIL_RECIPIENTS}",
+                    cc: 'covodoi01@gmail.com',
+                    subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                    body: emailBody,
+                    mimeType: 'text/html'
+                )
+            }
         }
         success {
             echo '✅ Build and deployment completed successfully!'
