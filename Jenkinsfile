@@ -22,22 +22,21 @@ pipeline {
         }
 
         stage('Build and Test') {
-    parallel {
-        stage('Install Dependencies') {
-            steps {
-                echo '📦 Installing dependencies...'
-                sh 'npm install'
+            parallel {
+                stage('Install Dependencies') {
+                    steps {
+                        echo '📦 Installing dependencies...'
+                        sh 'npm install'
+                    }
+                }
+                stage('Run Tests') {
+                    steps {
+                        echo '🧪 Running tests...'
+                        sh 'npm test'
+                    }
+                }
             }
         }
-        stage('Run Tests') {
-            steps {
-                echo '🧪 Running tests...'
-                sh 'npm test'
-            }
-        }
-    }
-}
-
 
         stage('Build Docker Image') {
             steps {
@@ -60,36 +59,22 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    try {
-                        docker.withRegistry('https://${DOCKER_REGISTRY}', 'dockerhub-jenkins-token') {
-                            docker.image("${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        }
-                    } catch (Exception e) {
-                        echo '⚠️ Docker push skipped...'
-                    }
-                }
-            }
-        }
-
         stage('Deploy to Staging') {
             steps {
                 echo '🚀 Deploying to staging...'
                 sh '''
                     # Pull latest image
                     docker pull namchamchi/todo-app:latest
-                    
+
                     # Stop and remove existing containers
                     docker-compose down || true
-                    
+
                     # Start new containers
                     docker-compose up -d
-                    
+
                     # Wait for application to be ready
                     sleep 10
-                    
+
                     # Verify deployment
                     curl -f http://localhost:3000 || exit 1
                 '''
@@ -102,7 +87,7 @@ pipeline {
                 sh '''
                     # Check container status
                     docker ps | grep todo-app
-                    
+
                     # Check application health
                     curl -f http://localhost:3000/api/todos || exit 1
                 '''
@@ -113,8 +98,8 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "kubectl apply -f k8s/production-deployment.yaml"
-                        sh "kubectl apply -f k8s/production-service.yaml"
+                        sh 'kubectl apply -f k8s/production-deployment.yaml'
+                        sh 'kubectl apply -f k8s/production-service.yaml'
                     } catch (Exception e) {
                         echo '⚠️ Deployment to production skipped...'
                     }
@@ -126,8 +111,8 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "kubectl rollout status deployment/todo-app-production"
-                        sh "npm run test:smoke"
+                        sh 'kubectl rollout status deployment/todo-app-production'
+                        sh 'npm run test:smoke'
                     } catch (Exception e) {
                         echo '⚠️ Verification skipped...'
                     }
@@ -146,7 +131,7 @@ pipeline {
                 } catch (Exception e) {
                     deploymentStatus = 'No deployment status available'
                 }
-                
+
                 def emailBody = """
                     <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
                     <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
@@ -184,7 +169,7 @@ pipeline {
             sh 'docker-compose down || true'
             script {
                 try {
-                    sh "kubectl rollout undo deployment/todo-app-production"
+                    sh 'kubectl rollout undo deployment/todo-app-production'
                 } catch (Exception e) {
                     echo '⚠️ Rollback skipped...'
                 }
