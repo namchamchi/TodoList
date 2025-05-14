@@ -21,7 +21,7 @@ pipeline {
             }
         }
 
-      stage('Build and Test') {
+        stage('Build and Test') {
     parallel {
         stage('Install Dependencies') {
             steps {
@@ -38,7 +38,6 @@ pipeline {
     }
 }
 
-        }
 
         stage('Build Docker Image') {
             steps {
