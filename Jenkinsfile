@@ -85,7 +85,7 @@ pipeline {
                     sleep 10
 
                     # Verify deployment
-                    curl -f http://localhost:3000 || exit 1
+                    curl -f http://localhost:3000/api/todos || exit 1
                 '''
             }
         }
