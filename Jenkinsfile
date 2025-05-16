@@ -70,6 +70,9 @@ pipeline {
                     docker stop todo-app || true
                     docker rm todo-app || true
 
+                    # Create network if not exists
+                    docker network create todo-network || true
+
                     # Start new container
                     docker run -d \
                         --name todo-app \
