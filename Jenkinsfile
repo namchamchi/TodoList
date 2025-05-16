@@ -98,7 +98,7 @@ pipeline {
                     docker ps | grep todo-app
 
                     # Check application health
-                    curl -f http://localhost:3000/api/todos || exit 1
+                    curl -f http://10.0.2.15:3000/api/todos || exit 1
                 '''
             }
         }
