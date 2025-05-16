@@ -84,11 +84,8 @@ pipeline {
                     # Wait for application to be ready
                     sleep 10
 
-                    # Get host IP address
-                    HOST_IP=$(hostname -I | awk '{print $1}')
-                    
                     # Verify deployment
-                    curl -f http://${HOST_IP}:3000/api/todos || exit 1
+                    curl -f http://10.0.2.15:3000/api/todos || exit 1
                 '''
             }
         }
