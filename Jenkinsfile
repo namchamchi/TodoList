@@ -67,10 +67,16 @@ pipeline {
                     docker pull namchamchi/todo-app:latest
 
                     # Stop and remove existing containers
-                    docker-compose down || true
+                    docker stop todo-app || true
+                    docker rm todo-app || true
 
-                    # Start new containers
-                    docker-compose up -d
+                    # Start new container
+                    docker run -d \
+                        --name todo-app \
+                        -p 3000:3000 \
+                        --network todo-network \
+                        --restart unless-stopped \
+                        namchamchi/todo-app:latest
 
                     # Wait for application to be ready
                     sleep 10
