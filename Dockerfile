@@ -18,7 +18,7 @@ RUN npm test
 # Production stage
 FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /app  
 
 # Copy package files
 COPY package*.json ./
@@ -37,7 +37,7 @@ COPY --from=builder /app/public ./public
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health checkk
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD curl -f http://localhost:3000/api/todos || exit 1
 
