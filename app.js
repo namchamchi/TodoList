@@ -2,6 +2,15 @@ const express = require('express');
 const todoRoutes = require('./routes/todoRoutes');
 const app = express();
 
+// Add CSP headers
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+  );
+  next();
+});
+
 app.use(express.json());
 app.use(express.static('public')); // Serve static files from public directory
 app.use('/api/todos', todoRoutes);

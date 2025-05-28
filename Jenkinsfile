@@ -135,6 +135,7 @@ pipeline {
             echo '🧹 Cleaning up...'
             script {
                 def deploymentStatus = ''
+                
                 try {
                     deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
                 } catch (Exception e) {
