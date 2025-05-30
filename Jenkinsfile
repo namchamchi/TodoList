@@ -51,7 +51,7 @@ pipeline {
             steps {
                 echo '📤 Pushing to Docker Hub...'
                 script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-jenkins-token') {
+                    docker.withRegistry('https://index.docker.io/v1/', 'jenkins_dockerhub_token') {
                         docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
                         docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
                     }
