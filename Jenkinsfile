@@ -7,6 +7,8 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
+        SONAR_HOST_URL = 'http://localhost:9000'
+        SONAR_TOKEN = credentials('sonar-token')
     }
 
     tools {
@@ -34,6 +36,34 @@ pipeline {
                         echo '🧪 Running tests...'
                         sh 'npm test'
                     }
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo '🔍 Running SonarQube analysis...'
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        npm install -g sonarqube-scanner
+                        sonar-scanner \
+                            -Dsonar.projectKey=todo-app \
+                            -Dsonar.sources=. \
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                            -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                            -Dsonar.tests=. \
+                            -Dsonar.test.inclusions=**/*.test.js \
+                            -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo '✅ Checking Quality Gate...'
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
