@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        label 'master'
-    }
+    agent any
 
     environment {
         NODE_ENV = 'development'
@@ -9,7 +7,7 @@ pipeline {
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
-        SONAR_HOST_URL = 'http://localhost:9000'
+        SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
     }
 
