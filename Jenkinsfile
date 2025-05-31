@@ -68,16 +68,16 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     echo "SonarQube Task Status: ${sonarTaskId}"
-                }
-                
-                // Giảm timeout xuống 5 phút
-                timeout(time: 2, unit: 'MINUTES') {
-                    try {
-                        waitForQualityGate abortPipeline: true
-                    } catch (Exception e) {
-                        echo "⚠️ Quality Gate check timed out or failed: ${e.message}"
-                        // Bỏ qua lỗi và tiếp tục pipeline nếu cần
-                        // currentBuild.result = 'UNSTABLE'
+                    
+                    // Giảm timeout xuống 2 phút
+                    timeout(time: 2, unit: 'MINUTES') {
+                        try {
+                            waitForQualityGate abortPipeline: true
+                        } catch (Exception e) {
+                            echo "⚠️ Quality Gate check timed out or failed: ${e.message}"
+                            // Bỏ qua lỗi và tiếp tục pipeline nếu cần
+                            // currentBuild.result = 'UNSTABLE'
+                        }
                     }
                 }
             }
