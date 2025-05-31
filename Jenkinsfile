@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'master'
+    }
 
     environment {
         NODE_ENV = 'development'
@@ -162,62 +164,56 @@ pipeline {
 
     post {
         always {
-            node {
-                echo '🧹 Cleaning up...'
-                script {
-                    def deploymentStatus = ''
-                    
-                    try {
-                        deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
-                    } catch (Exception e) {
-                        deploymentStatus = 'No deployment status available'
-                    }
-
-                    def emailBody = """
-                        <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
-                        <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
-                        <p>Build URL: ${env.BUILD_URL}</p>
-                        <p>Build Number: ${env.BUILD_NUMBER}</p>
-                        <p>Build Status: ${currentBuild.currentResult}</p>
-                        <p>Changes:</p>
-                        <ul>
-                            ${currentBuild.changeSets.collect { changeSet ->
-                                changeSet.items.collect { item ->
-                                    "<li>${item.commitId} - ${item.msg} (${item.author.fullName})</li>"
-                                }.join('')
-                            }.join('')}
-                        </ul>
-                        <p>Test Results:</p>
-                        <pre>${currentBuild.description ?: 'No test results available'}</pre>
-                        <p>Deployment Status:</p>
-                        <pre>${deploymentStatus}</pre>
-                    """
-
-                    mail(
-                        to: "${env.EMAIL_RECIPIENTS}",
-                        cc: 'covodoi01@gmail.com',
-                        subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
-                        body: emailBody,
-                        mimeType: 'text/html'
-                    )
+            echo '🧹 Cleaning up...'
+            script {
+                def deploymentStatus = ''
+                
+                try {
+                    deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
+                } catch (Exception e) {
+                    deploymentStatus = 'No deployment status available'
                 }
+
+                def emailBody = """
+                    <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
+                    <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
+                    <p>Build URL: ${env.BUILD_URL}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build Status: ${currentBuild.currentResult}</p>
+                    <p>Changes:</p>
+                    <ul>
+                        ${currentBuild.changeSets.collect { changeSet ->
+                            changeSet.items.collect { item ->
+                                "<li>${item.commitId} - ${item.msg} (${item.author.fullName})</li>"
+                            }.join('')
+                        }.join('')}
+                    </ul>
+                    <p>Test Results:</p>
+                    <pre>${currentBuild.description ?: 'No test results available'}</pre>
+                    <p>Deployment Status:</p>
+                    <pre>${deploymentStatus}</pre>
+                """
+
+                mail(
+                    to: "${env.EMAIL_RECIPIENTS}",
+                    cc: 'covodoi01@gmail.com',
+                    subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                    body: emailBody,
+                    mimeType: 'text/html'
+                )
             }
         }
         success {
-            node {
-                echo '✅ Build and deployment completed successfully!'
-            }
+            echo '✅ Build and deployment completed successfully!'
         }
         failure {
-            node {
-                echo '❌ Build or deployment failed.'
-                sh 'docker-compose down || true'
-                script {
-                    try {
-                        sh 'kubectl rollout undo deployment/todo-app-production'
-                    } catch (Exception e) {
-                        echo '⚠️ Rollback skipped...'
-                    }
+            echo '❌ Build or deployment failed.'
+            sh 'docker-compose down || true'
+            script {
+                try {
+                    sh 'kubectl rollout undo deployment/todo-app-production'
+                } catch (Exception e) {
+                    echo '⚠️ Rollback skipped...'
                 }
             }
         }
