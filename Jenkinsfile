@@ -62,23 +62,8 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 echo '✅ Checking Quality Gate...'
-                script {
-                    def sonarTaskId = sh(
-                        script: 'curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?id=eea97c1d-1e3c-4e4a-9004-c246e3f340a9',
-                        returnStdout: true
-                    ).trim()
-                    echo "SonarQube Task Status: ${sonarTaskId}"
-                    
-                    // Giảm timeout xuống 2 phút
-                    timeout(time: 2, unit: 'MINUTES') {
-                        try {
-                            waitForQualityGate abortPipeline: true
-                        } catch (Exception e) {
-                            echo "⚠️ Quality Gate check timed out or failed: ${e.message}"
-                            // Bỏ qua lỗi và tiếp tục pipeline nếu cần
-                            // currentBuild.result = 'UNSTABLE'
-                        }
-                    }
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
