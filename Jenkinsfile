@@ -62,8 +62,38 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 echo '✅ Checking Quality Gate...'
-                timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                script {
+                    def startTime = System.currentTimeMillis()
+                    def timeoutMinutes = 2
+                    def checkInterval = 10 // seconds
+                    
+                    while (System.currentTimeMillis() - startTime < timeoutMinutes * 60 * 1000) {
+                        try {
+                            def taskStatus = sh(
+                                script: 'curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?id=eea97c1d-1e3c-4e4a-9004-c246e3f340a9',
+                                returnStdout: true
+                            ).trim()
+                            echo "Current SonarQube Task Status: ${taskStatus}"
+                            
+                            if (taskStatus.contains('"status":"SUCCESS"')) {
+                                echo "✅ SonarQube analysis completed successfully"
+                                waitForQualityGate abortPipeline: true
+                                break
+                            } else if (taskStatus.contains('"status":"FAILED"')) {
+                                error "❌ SonarQube analysis failed"
+                            }
+                            
+                            sleep checkInterval
+                        } catch (Exception e) {
+                            echo "⚠️ Error checking SonarQube status: ${e.message}"
+                            sleep checkInterval
+                        }
+                    }
+                    
+                    if (System.currentTimeMillis() - startTime >= timeoutMinutes * 60 * 1000) {
+                        echo "⚠️ Quality Gate check timed out after ${timeoutMinutes} minutes"
+                        currentBuild.result = 'UNSTABLE'
+                    }
                 }
             }
         }
