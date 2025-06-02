@@ -65,7 +65,7 @@ pipeline {
                 script {
                     // Lấy task ID từ SonarQube
                     def taskId = sh(
-                        script: 'curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4',
+                        script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4',
                         returnStdout: true
                     ).trim()
                     
@@ -77,7 +77,7 @@ pipeline {
                     
                     while (attempt < maxAttempts) {
                         def taskStatus = sh(
-                            script: "curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?id=${taskId}",
+                            script: "curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?id=${taskId}",
                             returnStdout: true
                         ).trim()
                         
