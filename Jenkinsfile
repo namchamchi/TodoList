@@ -72,7 +72,7 @@ pipeline {
                     echo "SonarQube Task ID: ${taskId}"
                     
                     // Đợi task hoàn thành
-                    def maxAttempts = 12  // 2 phút với mỗi lần check 10 giây
+                    def maxAttempts = 1  // 2 phút với mỗi lần check 10 giây
                     def attempt = 0
                     
                     while (attempt < maxAttempts) {
