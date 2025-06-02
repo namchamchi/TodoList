@@ -62,8 +62,42 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 echo '✅ Checking Quality Gate...'
-                timeout(time: 2, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                script {
+                    // Lấy task ID từ SonarQube
+                    def taskId = sh(
+                        script: 'curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4',
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo "SonarQube Task ID: ${taskId}"
+                    
+                    // Đợi task hoàn thành
+                    def maxAttempts = 12  // 2 phút với mỗi lần check 10 giây
+                    def attempt = 0
+                    
+                    while (attempt < maxAttempts) {
+                        def taskStatus = sh(
+                            script: "curl -s -u admin:admin http://192.168.56.10:9000/api/ce/task?id=${taskId}",
+                            returnStdout: true
+                        ).trim()
+                        
+                        echo "Attempt ${attempt + 1}/${maxAttempts} - Task Status: ${taskStatus}"
+                        
+                        if (taskStatus.contains('"status":"SUCCESS"')) {
+                            echo "✅ SonarQube analysis completed successfully"
+                            break
+                        } else if (taskStatus.contains('"status":"FAILED"')) {
+                            error "❌ SonarQube analysis failed"
+                        }
+                        
+                        attempt++
+                        sleep 10
+                    }
+                    
+                    // Kiểm tra Quality Gate
+                    timeout(time: 1, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
                 }
             }
         }
