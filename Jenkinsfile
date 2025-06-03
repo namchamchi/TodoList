@@ -9,6 +9,7 @@ pipeline {
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
         SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
+        EC2_PROD_IP = '172.31.95.173'
     }
 
     tools {
@@ -167,14 +168,31 @@ pipeline {
             }
         }
 
-        stage('Deploy to Production') {
+                stage('Deploy to Production') {
             steps {
+                echo '🚀 Deploying to production EC2...'
                 script {
-                    try {
-                        sh 'kubectl apply -f k8s/production-deployment.yaml'
-                        sh 'kubectl apply -f k8s/production-service.yaml'
-                    } catch (Exception e) {
-                        echo '⚠️ Deployment to production skipped...'
+                    sshagent(['ec2-ssh']) {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} <<EOF
+                                set -e
+                                echo "🐳 Pulling latest Docker image..."
+                                docker pull namchamchi/todo-app:latest
+
+                                echo "🛑 Stopping old container if exists..."
+                                docker stop todo-app || true
+                                docker rm todo-app || true
+
+                                echo "🚀 Starting new container..."
+                                docker run -d \
+                                    --name todo-app \
+                                    -p 80:3000 \
+                                    --restart unless-stopped \
+                                    namchamchi/todo-app:latest
+
+                                echo "✅ Deployment on EC2 done!"
+                            EOF
+                        '''
                     }
                 }
             }
@@ -182,16 +200,15 @@ pipeline {
 
         stage('Verify Production') {
             steps {
+                echo '🔍 Verifying production deployment...'
                 script {
-                    try {
-                        sh 'kubectl rollout status deployment/todo-app-production'
-                        sh 'npm run test:smoke'
-                    } catch (Exception e) {
-                        echo '⚠️ Verification skipped...'
-                    }
+                    sh '''
+                        curl -f http://${EC2_PROD_IP}/api/todos || exit 1
+                    '''
                 }
             }
         }
+
     }
 
     post {
