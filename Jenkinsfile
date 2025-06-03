@@ -44,43 +44,43 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo '🔍 Skipping SonarQube analysis...'
-                // Commented out SonarQube analysis
-                /*
-                withSonarQubeEnv('SonarQube') {
-                    sh 'npm install -g sonarqube-scanner'
-                    sh 'sonar-scanner -Dsonar.projectKey=todo-app -Dsonar.sources=. -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js -Dsonar.tests=. -Dsonar.test.inclusions=**/*.test.js -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml'
-                }
-                */
+                // // Commented out SonarQube analysis
+                // /*
+                // withSonarQubeEnv('SonarQube') {
+                //     sh 'npm install -g sonarqube-scanner'
+                //     sh 'sonar-scanner -Dsonar.projectKey=todo-app -Dsonar.sources=. -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js -Dsonar.tests=. -Dsonar.test.inclusions=**/*.test.js -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml'
+                // }
+                // */
             }
         }
 
         stage('Quality Gate') {
             steps {
                 echo '✅ Skipping Quality Gate check...'
-                // Commented out Quality Gate check
-                /*
-                script {
-                    def taskId = sh(script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4', returnStdout: true).trim()
-                    echo "SonarQube Task ID: ${taskId}"
-                    def maxAttempts = 1
-                    def attempt = 0
-                    while (attempt < maxAttempts) {
-                        def taskStatus = sh(script: "curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?id=${taskId}", returnStdout: true).trim()
-                        echo "Attempt ${attempt + 1}/${maxAttempts} - Task Status: ${taskStatus}"
-                        if (taskStatus.contains('"status":"SUCCESS"')) {
-                            echo "✅ SonarQube analysis completed successfully"
-                            break
-                        } else if (taskStatus.contains('"status":"FAILED"')) {
-                            error "❌ SonarQube analysis failed"
-                        }
-                        attempt++
-                        sleep 10
-                    }
-                    timeout(time: 1, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
-                    }
-                }
-                */
+                // // Commented out Quality Gate check
+                // /*
+                // script {
+                //     def taskId = sh(script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4', returnStdout: true).trim()
+                //     echo "SonarQube Task ID: ${taskId}"
+                //     def maxAttempts = 1
+                //     def attempt = 0
+                //     while (attempt < maxAttempts) {
+                //         def taskStatus = sh(script: "curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?id=${taskId}", returnStdout: true).trim()
+                //         echo "Attempt ${attempt + 1}/${maxAttempts} - Task Status: ${taskStatus}"
+                //         if (taskStatus.contains('"status":"SUCCESS"')) {
+                //             echo "✅ SonarQube analysis completed successfully"
+                //             break
+                //         } else if (taskStatus.contains('"status":"FAILED"')) {
+                //             error "❌ SonarQube analysis failed"
+                //         }
+                //         attempt++
+                //         sleep 10
+                //     }
+                //     timeout(time: 1, unit: 'MINUTES') {
+                //         waitForQualityGate abortPipeline: true
+                //     }
+                // }
+                // */
             }
         }
 
