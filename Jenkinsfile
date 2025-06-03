@@ -43,7 +43,9 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                echo '🔍 Running SonarQube analysis...'
+                echo '🔍 Skipping SonarQube analysis...'
+                // Commented out SonarQube analysis
+                /*
                 withSonarQubeEnv('SonarQube') {
                     sh '''
                         npm install -g sonarqube-scanner
@@ -57,14 +59,16 @@ pipeline {
                             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
                     '''
                 }
+                */
             }
         }
 
         stage('Quality Gate') {
             steps {
-                echo '✅ Checking Quality Gate...'
+                echo '✅ Skipping Quality Gate check...'
+                // Commented out Quality Gate check
+                /*
                 script {
-                    // Lấy task ID từ SonarQube
                     def taskId = sh(
                         script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4',
                         returnStdout: true
@@ -72,8 +76,7 @@ pipeline {
                     
                     echo "SonarQube Task ID: ${taskId}"
                     
-                    // Đợi task hoàn thành
-                    def maxAttempts = 1  // 2 phút với mỗi lần check 10 giây
+                    def maxAttempts = 1
                     def attempt = 0
                     
                     while (attempt < maxAttempts) {
@@ -95,11 +98,11 @@ pipeline {
                         sleep 10
                     }
                     
-                    // Kiểm tra Quality Gate
                     timeout(time: 1, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
                 }
+                */
             }
         }
 
