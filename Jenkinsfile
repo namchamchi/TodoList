@@ -10,6 +10,7 @@ pipeline {
         SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
         EC2_PROD_IP = '13.221.16.169'
+        DOCKER_CLI_EXPERIMENTAL = "enabled"
     }
 
     tools {
@@ -88,6 +89,23 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 sh '''
+                    # Cài đặt Docker Buildx
+                    if ! docker buildx version &>/dev/null; then
+                        echo "Docker Buildx không có sẵn, tiến hành cài đặt..."
+                         mkdir -p ~/.docker/cli-plugins
+                         curl -SL https://github.com/docker/buildx/releases/latest/download/buildx-linux-arm64 -o ~/.docker/cli-plugins/docker-buildx
+                         chmod +x ~/.docker/cli-plugins/docker-buildx
+                    fi
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    docker buildx version
+
+
+                    docker buildx create --name mybuilder --use
+                    docker buildx inspect --bootstrap
+                    docker buildx build \
+                        --platform linux/amd64,linux/arm64 \
+                        -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                        -t namchamchi/${DOCKER_IMAGE}:latest \
                     # Tạo và sử dụng builder nếu chưa tồn tại
                     if ! docker buildx inspect mybuilder &>/dev/null; then
                         docker buildx create --name mybuilder --use
