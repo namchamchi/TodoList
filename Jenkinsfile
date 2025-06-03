@@ -107,8 +107,8 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 sh '''
-                    docker build --platform linux/amd64 -t namchamchi/todo-app:${BUILD_NUMBER} .
-                    docker tag namchamchi/todo-app:${BUILD_NUMBER} namchamchi/todo-app:latest
+                    docker-compose build
+                    docker tag namchamchi/todo-app:latest namchamchi/todo-app:${BUILD_NUMBER}
                 '''
             }
         }

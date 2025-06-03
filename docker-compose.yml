@@ -1,16 +1,13 @@
 version: '3.8'
 
 services:
-  app:
-    platform: linux/amd64
-    build:
-      context: .
-      dockerfile: Dockerfile
+  todo-app:
     image: namchamchi/todo-app:latest
+    container_name: todo-app
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=staging
     restart: unless-stopped
     networks:
       - todo-network
