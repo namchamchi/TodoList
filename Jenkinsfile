@@ -159,13 +159,13 @@ pipeline {
             }
         }
 
-                stage('Deploy to Production') {
+        stage('Deploy to Production') {
             steps {
                 echo '🚀 Deploying to production EC2...'
                 script {
                     sshagent(['ec2-ssh']) {
                         sh '''
-                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} <<EOF
+                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                 set -e
                                 echo "🐳 Pulling latest Docker image..."
                                 docker pull namchamchi/todo-app:latest
@@ -182,7 +182,7 @@ pipeline {
                                     namchamchi/todo-app:latest
 
                                 echo "✅ Deployment on EC2 done!"
-                            EOF
+                            '
                         '''
                     }
                 }
