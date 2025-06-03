@@ -106,21 +106,24 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                script {
-                    docker.build("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}")
-                }
-            }
-        }
+                sh '''
+                    # Tạo và sử dụng builder nếu chưa tồn tại
+                    if ! docker buildx inspect mybuilder &>/dev/null; then
+                        docker buildx create --name mybuilder --use
+                    else
+                        docker buildx use mybuilder
+                    fi
 
-        stage('Push to Docker Hub') {
-            steps {
-                echo '📤 Pushing to Docker Hub...'
-                script {
-                    docker.withRegistry('https://index.docker.io/v1/', 'jenkins_dockerhub_token') {
-                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
-                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
-                    }
-                }
+                    # Khởi tạo QEMU và kiểm tra builder
+                    docker buildx inspect --bootstrap
+
+                    # Build và push multi-arch image
+                    docker buildx build \
+                        --platform linux/amd64,linux/arm64 \
+                        -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                        -t namchamchi/${DOCKER_IMAGE}:latest \
+                        --push .
+                '''
             }
         }
 
