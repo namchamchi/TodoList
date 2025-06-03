@@ -88,23 +88,30 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh '''
-                    # Xóa builder cũ nếu tồn tại
-                    docker buildx rm mybuilder || true
-                    
-                    # Tạo builder mới
-                    docker buildx create --name mybuilder --use
-                    
-                    # Khởi tạo QEMU và kiểm tra builder
-                    docker buildx inspect --bootstrap
+                script {
+                    // Đăng nhập vào Docker Hub
+                    withCredentials([usernamePassword(credentialsId: 'jenkins_dockerhub_token', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh '''
+                            echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                            
+                            # Xóa builder cũ nếu tồn tại
+                            docker buildx rm mybuilder || true
+                            
+                            # Tạo builder mới
+                            docker buildx create --name mybuilder --use
+                            
+                            # Khởi tạo QEMU và kiểm tra builder
+                            docker buildx inspect --bootstrap
 
-                    # Build và push multi-arch image
-                    docker buildx build \
-                        --platform linux/amd64,linux/arm64 \
-                        -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                        -t namchamchi/${DOCKER_IMAGE}:latest \
-                        --push .
-                '''
+                            # Build và push multi-arch image
+                            docker buildx build \
+                                --platform linux/amd64,linux/arm64 \
+                                -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                -t namchamchi/${DOCKER_IMAGE}:latest \
+                                --push .
+                        '''
+                    }
+                }
             }
         }
 
