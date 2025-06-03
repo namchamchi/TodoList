@@ -89,17 +89,7 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 sh '''
-                    # Cài đặt Docker Buildx
-                    if ! docker buildx version &>/dev/null; then
-                        echo "Docker Buildx không có sẵn, tiến hành cài đặt..."
-                         mkdir -p ~/.docker/cli-plugins
-                         curl -SL https://github.com/docker/buildx/releases/latest/download/buildx-linux-arm64 -o ~/.docker/cli-plugins/docker-buildx
-                         chmod +x ~/.docker/cli-plugins/docker-buildx
-                    fi
-                    export DOCKER_CLI_EXPERIMENTAL=enabled
-                    docker buildx version
-
-
+    
                     docker buildx create --name mybuilder --use
                     docker buildx inspect --bootstrap
                     docker buildx build \
