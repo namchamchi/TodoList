@@ -89,13 +89,6 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 sh '''
-    
-                    docker buildx create --name mybuilder --use
-                    docker buildx inspect --bootstrap
-                    docker buildx build \
-                        --platform linux/amd64,linux/arm64 \
-                        -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                        -t namchamchi/${DOCKER_IMAGE}:latest \
                     # Tạo và sử dụng builder nếu chưa tồn tại
                     if ! docker buildx inspect mybuilder &>/dev/null; then
                         docker buildx create --name mybuilder --use
