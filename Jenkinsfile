@@ -106,10 +106,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo '🐳 Building Docker image...'
-                sh '''
-                    docker-compose build
-                    docker tag namchamchi/todo-app:latest namchamchi/todo-app:${BUILD_NUMBER}
-                '''
+                script {
+                    docker.build("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}")
+                }
             }
         }
 
@@ -118,8 +117,8 @@ pipeline {
                 echo '📤 Pushing to Docker Hub...'
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'jenkins_dockerhub_token') {
-                        docker.image("namchamchi/todo-app:${BUILD_NUMBER}").push()
-                        docker.image("namchamchi/todo-app:latest").push()
+                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push()
+                        docker.image("namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}").push('latest')
                     }
                 }
             }
@@ -169,13 +168,13 @@ pipeline {
             }
         }
 
-        stage('Deploy to Production') {
+                stage('Deploy to Production') {
             steps {
                 echo '🚀 Deploying to production EC2...'
                 script {
                     sshagent(['ec2-ssh']) {
                         sh '''
-                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
+                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} <<EOF
                                 set -e
                                 echo "🐳 Pulling latest Docker image..."
                                 docker pull namchamchi/todo-app:latest
@@ -187,13 +186,12 @@ pipeline {
                                 echo "🚀 Starting new container..."
                                 docker run -d \
                                     --name todo-app \
-                                    --platform linux/amd64 \
                                     -p 80:3000 \
                                     --restart unless-stopped \
                                     namchamchi/todo-app:latest
 
                                 echo "✅ Deployment on EC2 done!"
-                            '
+                            EOF
                         '''
                     }
                 }
@@ -204,12 +202,9 @@ pipeline {
             steps {
                 echo '🔍 Verifying production deployment...'
                 script {
-                    retry(3) {
-                        sleep 10  // Đợi container khởi động
-                        sh '''
-                            curl -f http://${EC2_PROD_IP}/api/todos || exit 1
-                        '''
-                    }
+                    sh '''
+                        curl -f http://${EC2_PROD_IP}/api/todos || exit 1
+                    '''
                 }
             }
         }
