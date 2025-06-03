@@ -89,13 +89,12 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 sh '''
-                    # Tạo và sử dụng builder nếu chưa tồn tại
-                    if ! docker buildx inspect mybuilder &>/dev/null; then
-                        docker buildx create --name mybuilder --use
-                    else
-                        docker buildx use mybuilder
-                    fi
-
+                    # Xóa builder cũ nếu tồn tại
+                    docker buildx rm mybuilder || true
+                    
+                    # Tạo builder mới
+                    docker buildx create --name mybuilder --use
+                    
                     # Khởi tạo QEMU và kiểm tra builder
                     docker buildx inspect --bootstrap
 
