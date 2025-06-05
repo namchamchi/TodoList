@@ -172,7 +172,7 @@ pipeline {
                 script {
                     // Generate cache key based on Dockerfile and source files
                     def dockerCacheKey = sh(
-                        script: 'find . -type f -not -path "*/node_modules/*" -not -path "*/\.*" -exec md5sum {} \\; | sort | md5sum | cut -d" " -f1',
+                        script: 'find . -type f -not -path "*/node_modules/*" -not -path "*/\\..*" -exec md5sum {} \\; | sort | md5sum | cut -d" " -f1',
                         returnStdout: true
                     ).trim()
                     
