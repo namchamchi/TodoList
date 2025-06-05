@@ -9,7 +9,7 @@ pipeline {
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
         SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
-        EC2_PROD_IP = '18.204.206.90'
+        EC2_PROD_IP = '54.147.130.180'
         DOCKER_CLI_EXPERIMENTAL = "enabled"
     }
 
@@ -120,7 +120,7 @@ pipeline {
                 echo '🚀 Deploying to staging...'
                 sh '''
                     # Pull latest image
-                    docker pull namchamchi/todo-app:latest
+                    docker pull namchamchi/todo-app:${DOCKER_TAG}
 
                     # Stop and remove existing containers
                     docker stop todo-app || true
@@ -135,7 +135,7 @@ pipeline {
                         -p 3000:3000 \
                         --network todo-network \
                         --restart unless-stopped \
-                        namchamchi/todo-app:latest
+                        namchamchi/todo-app:${DOCKER_TAG}
 
                     # Wait for application to be ready
                     sleep 10
@@ -168,7 +168,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                 set -e
                                 echo "🐳 Pulling latest Docker image..."
-                                docker pull namchamchi/todo-app:latest
+                                docker pull namchamchi/todo-app:${DOCKER_TAG}
 
                                 echo "🛑 Stopping old container if exists..."
                                 docker stop todo-app || true
@@ -179,7 +179,7 @@ pipeline {
                                     --name todo-app \
                                     -p 80:3000 \
                                     --restart unless-stopped \
-                                    namchamchi/todo-app:latest
+                                    namchamchi/todo-app:${DOCKER_TAG}
 
                                 echo "✅ Deployment on EC2 done!"
                             '
@@ -248,14 +248,6 @@ pipeline {
         }
         failure {
             echo '❌ Build or deployment failed.'
-            sh 'docker-compose down || true'
-            script {
-                try {
-                    sh 'kubectl rollout undo deployment/todo-app-production'
-                } catch (Exception e) {
-                    echo '⚠️ Rollback skipped...'
-                }
-            }
         }
     }
 }
