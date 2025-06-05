@@ -12,7 +12,7 @@ pipeline {
         EC2_PROD_IP = '54.147.130.180'
         DOCKER_CLI_EXPERIMENTAL = "enabled"
         // Cache configuration
-        REDIS_HOST = 'localhost'
+        REDIS_HOST = '10.0.2.15'
         REDIS_PORT = '6379'
         CACHE_KEY_PREFIX = "pipeline_${BUILD_NUMBER}"
     }
@@ -29,7 +29,7 @@ pipeline {
                     # Install Redis client if not exists
                     if ! command -v redis-cli &> /dev/null; then
                         echo "Installing Redis client..."
-                        sudo apt-get update && sudo apt-get install -y redis-tools
+                        apt-get update && apt-get install -y redis-tools
                     fi
 
                     # Start Redis container if not running
@@ -38,8 +38,8 @@ pipeline {
                         docker run -d --name redis-cache -p 6379:6379 redis:alpine
                     fi
 
-                    # Test Redis connection
-                    redis-cli ping || exit 1
+                    # Test Redis connection using host IP
+                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} ping || exit 1
                 '''
             }
         }
@@ -66,7 +66,7 @@ pipeline {
 
                             // Check if dependencies are cached
                             def cachedDeps = sh(
-                                script: "redis-cli get ${cacheKey}",
+                                script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
                                 returnStdout: true
                             ).trim()
 
@@ -84,8 +84,8 @@ pipeline {
                                     
                                     # Cache node_modules
                                     tar -czf /tmp/node_modules.tar.gz node_modules
-                                    redis-cli set ${cacheKey} 1
-                                    redis-cli expire ${cacheKey} 86400  # Cache for 24 hours
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 86400  # Cache for 24 hours
                                 '''
                             }
                         }
@@ -105,7 +105,7 @@ pipeline {
 
                             // Check if test results are cached
                             def cachedTests = sh(
-                                script: "redis-cli get ${cacheKey}",
+                                script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
                                 returnStdout: true
                             ).trim()
 
@@ -114,8 +114,8 @@ pipeline {
                             } else {
                                 echo "🧪 Running fresh tests..."
                                 sh 'npm test'
-                                sh "redis-cli set ${cacheKey} 1"
-                                sh "redis-cli expire ${cacheKey} 3600"  // Cache for 1 hour
+                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1"
+                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 3600"  // Cache for 1 hour
                             }
                         }
                     }
@@ -178,7 +178,7 @@ pipeline {
                     
                     def cacheKey = "${CACHE_KEY_PREFIX}_docker_${dockerCacheKey}"
                     def cachedImage = sh(
-                        script: "redis-cli get ${cacheKey}",
+                        script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
                         returnStdout: true
                     ).trim()
 
@@ -202,8 +202,8 @@ pipeline {
                                     --push .
 
                                 # Cache the build
-                                redis-cli set ${cacheKey} 1
-                                redis-cli expire ${cacheKey} 86400  # Cache for 24 hours
+                                redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1
+                                redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 86400  # Cache for 24 hours
                             '''
                         }
                     }
@@ -361,7 +361,7 @@ pipeline {
                 // Clean up old cache entries
                 sh '''
                     # Remove cache entries older than 7 days
-                    redis-cli keys "${CACHE_KEY_PREFIX}_*" | xargs -r redis-cli del
+                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} keys "${CACHE_KEY_PREFIX}_*" | xargs -r redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} del
                 '''
                 
                 def deploymentStatus = ''
