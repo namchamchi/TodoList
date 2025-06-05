@@ -163,27 +163,83 @@ pipeline {
             steps {
                 echo '🚀 Deploying to production EC2...'
                 script {
-                    sshagent(['ec2-ssh']) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
-                                set -e
-                                echo "🐳 Pulling latest Docker image..."
-                                docker pull namchamchi/todo-app:${DOCKER_TAG}
+                    try {
+                        // Lưu thông tin image hiện tại trước khi deploy
+                        def currentImage = sh(
+                            script: 'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"',
+                            returnStdout: true
+                        ).trim()
+                        echo "🔁 Current running image: ${currentImage}"
+                        writeFile file: '.rollback-tag', text: currentImage
 
-                                echo "🛑 Stopping old container if exists..."
+                        sshagent(['ec2-ssh']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
+                                    set -e
+                                    echo "🐳 Pulling latest Docker image..."
+                                    docker pull namchamchi/todo-app:${DOCKER_TAG}
+
+                                    echo "🛑 Stopping old container if exists..."
+                                    docker stop todo-app || true
+                                    docker rm todo-app || true
+
+                                    echo "🚀 Starting new container..."
+                                    docker run -d \
+                                        --name todo-app \
+                                        -p 80:3000 \
+                                        --restart unless-stopped \
+                                        namchamchi/todo-app:${DOCKER_TAG}
+
+                                    echo "✅ Deployment on EC2 done!"
+                                '
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "❌ Deployment failed: ${e.message}"
+                        // Thực hiện rollback ngay lập tức
+                        def rollbackTag = readFile('.rollback-tag').trim()
+                        if (rollbackTag != 'none') {
+                            echo "🔄 Rolling back to previous version: ${rollbackTag}"
+                            
+                            // Rollback staging environment
+                            echo '🔄 Rolling back staging environment...'
+                            sh """
                                 docker stop todo-app || true
                                 docker rm todo-app || true
-
-                                echo "🚀 Starting new container..."
+                                docker pull ${rollbackTag} || true
                                 docker run -d \
                                     --name todo-app \
-                                    -p 80:3000 \
+                                    -p 3000:3000 \
+                                    --network todo-network \
                                     --restart unless-stopped \
-                                    namchamchi/todo-app:${DOCKER_TAG}
-
-                                echo "✅ Deployment on EC2 done!"
-                            '
-                        """
+                                    ${rollbackTag} || true
+                            """
+                            
+                            // Rollback production environment
+                            echo '🔄 Rolling back production environment...'
+                            sshagent(['ec2-ssh']) {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
+                                        set -e
+                                        echo "🔄 Rolling back to previous version: ${rollbackTag}"
+                                        docker stop todo-app || true
+                                        docker rm todo-app || true
+                                        docker pull ${rollbackTag} || true
+                                        docker run -d \
+                                            --name todo-app \
+                                            -p 80:3000 \
+                                            --restart unless-stopped \
+                                            ${rollbackTag} || true
+                                        
+                                        echo "✅ Rollback completed!"
+                                    '
+                                """
+                            }
+                        } else {
+                            echo "⚠️ No previous version available for rollback"
+                        }
+                        // Ném lại exception để đánh dấu stage thất bại
+                        throw e
                     }
                 }
             }
@@ -248,6 +304,9 @@ pipeline {
         }
         failure {
             echo '❌ Build or deployment failed.'
+        }
+        aborted {
+            echo '⚠️ Build was aborted!'
         }
     }
 }
