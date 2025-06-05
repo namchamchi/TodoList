@@ -164,7 +164,7 @@ pipeline {
                 echo '🚀 Deploying to production EC2...'
                 script {
                     sshagent(['ec2-ssh']) {
-                        sh '''
+                        sh """
                             ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                 set -e
                                 echo "🐳 Pulling latest Docker image..."
@@ -183,7 +183,7 @@ pipeline {
 
                                 echo "✅ Deployment on EC2 done!"
                             '
-                        '''
+                        """
                     }
                 }
             }
