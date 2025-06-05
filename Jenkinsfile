@@ -32,9 +32,17 @@ pipeline {
                         apt-get update && apt-get install -y redis-tools
                     fi
 
-                    # Start Redis container if not running
-                    if ! docker ps | grep -q redis; then
-                        echo "Starting Redis container..."
+                    # Check if Redis container exists and handle it
+                    if docker ps -a | grep -q redis-cache; then
+                        echo "Redis container exists, checking status..."
+                        if ! docker ps | grep -q redis-cache; then
+                            echo "Starting existing Redis container..."
+                            docker start redis-cache
+                        else
+                            echo "Redis container is already running"
+                        fi
+                    else
+                        echo "Starting new Redis container..."
                         docker run -d --name redis-cache -p 6379:6379 redis:alpine
                     fi
 
