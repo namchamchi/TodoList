@@ -9,7 +9,7 @@ pipeline {
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
         SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
-        EC2_PROD_IP = '54.147.130.180'
+        EC2_PROD_IP = '54.146.188.202'
         DOCKER_CLI_EXPERIMENTAL = "enabled"
         DOCKER_BUILDKIT = "1"
     }
