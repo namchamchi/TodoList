@@ -87,9 +87,8 @@ pipeline {
                             } else {
                                 echo "📦 Installing fresh dependencies..."
                                 sh '''
-                                    # Install dependencies with Jest
+                                    # Install dependencies
                                     npm ci
-                                    npm install --save-dev jest jest-diff @types/jest
                                     
                                     # Cache node_modules
                                     tar -czf /tmp/node_modules.tar.gz node_modules
