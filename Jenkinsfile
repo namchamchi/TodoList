@@ -11,10 +11,6 @@ pipeline {
         SONAR_TOKEN = credentials('sonar-token')
         EC2_PROD_IP = '54.147.130.180'
         DOCKER_CLI_EXPERIMENTAL = "enabled"
-        // Cache configuration
-        REDIS_HOST = '10.0.2.15'
-        REDIS_PORT = '6379'
-        CACHE_KEY_PREFIX = "pipeline_${BUILD_NUMBER}"
     }
 
     tools {
@@ -22,36 +18,6 @@ pipeline {
     }
 
     stages {
-        stage('Setup Cache') {
-            steps {
-                echo '🔄 Setting up Redis cache...'
-                sh '''
-                    # Install Redis client if not exists
-                    if ! command -v redis-cli &> /dev/null; then
-                        echo "Installing Redis client..."
-                        apt-get update && apt-get install -y redis-tools
-                    fi
-
-                    # Check if Redis container exists and handle it
-                    if docker ps -a | grep -q redis-cache; then
-                        echo "Redis container exists, checking status..."
-                        if ! docker ps | grep -q redis-cache; then
-                            echo "Starting existing Redis container..."
-                            docker start redis-cache
-                        else
-                            echo "Redis container is already running"
-                        fi
-                    else
-                        echo "Starting new Redis container..."
-                        docker run -d --name redis-cache -p 6379:6379 redis:alpine
-                    fi
-
-                    # Test Redis connection using host IP
-                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} ping || exit 1
-                '''
-            }
-        }
-
         stage('Checkout') {
             steps {
                 echo '🌀 Cloning repository...'
@@ -64,69 +30,13 @@ pipeline {
                 stage('Install Dependencies') {
                     steps {
                         echo '📦 Installing dependencies...'
-                        script {
-                            // Generate cache key based on package.json hash
-                            def packageJsonHash = sh(
-                                script: 'md5sum package.json | cut -d" " -f1',
-                                returnStdout: true
-                            ).trim()
-                            def cacheKey = "${CACHE_KEY_PREFIX}_deps_${packageJsonHash}"
-
-                            // Check if dependencies are cached
-                            def cachedDeps = sh(
-                                script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
-                                returnStdout: true
-                            ).trim()
-
-                            if (cachedDeps == "1") {
-                                echo "📦 Using cached dependencies..."
-                                sh '''
-                                    # Restore node_modules from cache
-                                    tar -xf /tmp/node_modules.tar.gz
-                                '''
-                            } else {
-                                echo "📦 Installing fresh dependencies..."
-                                sh '''
-                                    # Clean install dependencies
-                                    rm -rf node_modules package-lock.json
-                                    npm install
-                                    
-                                    # Cache node_modules
-                                    tar -czf /tmp/node_modules.tar.gz node_modules
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set "${CACHE_KEY_PREFIX}_deps_${packageJsonHash}" "1"
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire "${CACHE_KEY_PREFIX}_deps_${packageJsonHash}" 86400  # Cache for 24 hours
-                                '''
-                            }
-                        }
+                        sh 'npm install'
                     }
                 }
-
                 stage('Run Tests') {
                     steps {
                         echo '🧪 Running tests...'
-                        script {
-                            // Generate cache key based on test files hash
-                            def testFilesHash = sh(
-                                script: 'find . -name "*.test.js" -type f -exec md5sum {} \\; | sort | md5sum | cut -d" " -f1',
-                                returnStdout: true
-                            ).trim()
-                            def cacheKey = "${CACHE_KEY_PREFIX}_tests_${testFilesHash}"
-
-                            // Check if test results are cached
-                            def cachedTests = sh(
-                                script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
-                                returnStdout: true
-                            ).trim()
-
-                            if (cachedTests == "1") {
-                                echo "🧪 Using cached test results..."
-                            } else {
-                                echo "🧪 Running fresh tests..."
-                                sh 'npm test'
-                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set \"${cacheKey}\" \"1\""
-                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire \"${cacheKey}\" 3600"  // Cache for 1 hour
-                            }
-                        }
+                        sh 'npm test'
                     }
                 }
             }
@@ -179,42 +89,27 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 script {
-                    // Generate cache key based on Dockerfile and source files
-                    def dockerCacheKey = sh(
-                        script: 'find . -type f -not -path "*/node_modules/*" -not -path "*/\\..*" -exec md5sum {} \\; | sort | md5sum | cut -d" " -f1',
-                        returnStdout: true
-                    ).trim()
-                    
-                    def cacheKey = "${CACHE_KEY_PREFIX}_docker_${dockerCacheKey}"
-                    def cachedImage = sh(
-                        script: "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} get ${cacheKey}",
-                        returnStdout: true
-                    ).trim()
-
-                    if (cachedImage == "1") {
-                        echo "🐳 Using cached Docker image..."
+                    // Đăng nhập vào Docker Hub
+                    withCredentials([usernamePassword(credentialsId: 'jenkins_dockerhub_token', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                         sh '''
-                            docker pull namchamchi/${DOCKER_IMAGE}:latest
-                            docker tag namchamchi/${DOCKER_IMAGE}:latest namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG}
-                        '''
-                    } else {
-                        echo "🐳 Building fresh Docker image..."
-                        withCredentials([usernamePassword(credentialsId: 'jenkins_dockerhub_token', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
-                            sh '''
-                                echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                                
-                                # Build and push image
-                                docker buildx build \
-                                    --platform linux/amd64,linux/arm64 \
-                                    -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                                    -t namchamchi/${DOCKER_IMAGE}:latest \
-                                    --push .
+                            echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                            
+                            # Xóa builder cũ nếu tồn tại
+                            docker buildx rm mybuilder || true
+                            
+                            # Tạo builder mới
+                            docker buildx create --name mybuilder --use
+                            
+                            # Khởi tạo QEMU và kiểm tra builder
+                            docker buildx inspect --bootstrap
 
-                                # Cache the build
-                                redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1
-                                redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 86400  # Cache for 24 hours
-                            '''
-                        }
+                            # Build và push multi-arch image
+                            docker buildx build \
+                                --platform linux/amd64,linux/arm64 \
+                                -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                -t namchamchi/${DOCKER_IMAGE}:latest \
+                                --push .
+                        '''
                     }
                 }
             }
@@ -367,12 +262,6 @@ pipeline {
         always {
             echo '🧹 Cleaning up...'
             script {
-                // Clean up old cache entries
-                sh '''
-                    # Remove cache entries older than 7 days
-                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} keys "${CACHE_KEY_PREFIX}_*" | xargs -r redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} del
-                '''
-                
                 def deploymentStatus = ''
                 
                 try {
