@@ -11,6 +11,7 @@ pipeline {
         SONAR_TOKEN = credentials('sonar-token')
         EC2_PROD_IP = '54.147.130.180'
         DOCKER_CLI_EXPERIMENTAL = "enabled"
+        DOCKER_BUILDKIT = "1"
     }
 
     tools {
@@ -89,7 +90,6 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 script {
-                    // Đăng nhập vào Docker Hub
                     withCredentials([usernamePassword(credentialsId: 'jenkins_dockerhub_token', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                         sh '''
                             echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
@@ -97,15 +97,17 @@ pipeline {
                             # Xóa builder cũ nếu tồn tại
                             docker buildx rm mybuilder || true
                             
-                            # Tạo builder mới
-                            docker buildx create --name mybuilder --use
+                            # Tạo builder mới với cache
+                            docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
                             
                             # Khởi tạo QEMU và kiểm tra builder
                             docker buildx inspect --bootstrap
 
-                            # Build và push multi-arch image
+                            # Build và push multi-arch image với cache
                             docker buildx build \
                                 --platform linux/amd64,linux/arm64 \
+                                --cache-from type=registry,ref=namchamchi/${DOCKER_IMAGE}:latest \
+                                --cache-to type=inline \
                                 -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
                                 -t namchamchi/${DOCKER_IMAGE}:latest \
                                 --push .
