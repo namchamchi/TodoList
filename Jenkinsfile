@@ -87,13 +87,14 @@ pipeline {
                             } else {
                                 echo "📦 Installing fresh dependencies..."
                                 sh '''
-                                    # Install dependencies
+                                    # Install dependencies with Jest
                                     npm ci
+                                    npm install --save-dev jest jest-diff @types/jest
                                     
                                     # Cache node_modules
                                     tar -czf /tmp/node_modules.tar.gz node_modules
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 86400  # Cache for 24 hours
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set "${cacheKey}" "1"
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire "${cacheKey}" 86400  # Cache for 24 hours
                                 '''
                             }
                         }
@@ -122,8 +123,8 @@ pipeline {
                             } else {
                                 echo "🧪 Running fresh tests..."
                                 sh 'npm test'
-                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set ${cacheKey} 1"
-                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire ${cacheKey} 3600"  // Cache for 1 hour
+                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set \"${cacheKey}\" \"1\""
+                                sh "redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire \"${cacheKey}\" 3600"  // Cache for 1 hour
                             }
                         }
                     }
