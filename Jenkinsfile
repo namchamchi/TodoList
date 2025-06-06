@@ -87,13 +87,14 @@ pipeline {
                             } else {
                                 echo "📦 Installing fresh dependencies..."
                                 sh '''
-                                    # Install dependencies
-                                    npm ci
+                                    # Clean install dependencies
+                                    rm -rf node_modules package-lock.json
+                                    npm install
                                     
                                     # Cache node_modules
                                     tar -czf /tmp/node_modules.tar.gz node_modules
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set "${cacheKey}" "1"
-                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire "${cacheKey}" 86400  # Cache for 24 hours
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} set "${CACHE_KEY_PREFIX}_deps_${packageJsonHash}" "1"
+                                    redis-cli -h ${REDIS_HOST} -p ${REDIS_PORT} expire "${CACHE_KEY_PREFIX}_deps_${packageJsonHash}" 86400  # Cache for 24 hours
                                 '''
                             }
                         }
