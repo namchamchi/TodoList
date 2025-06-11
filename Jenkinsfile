@@ -9,9 +9,9 @@ pipeline {
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
         SONAR_HOST_URL = 'http://localhost:9000' 
         SONAR_TOKEN = credentials('sonar-token')
-        EC2_PROD_IP = '54.146.188.202'
-        DOCKER_CLI_EXPERIMENTAL = "enabled"
-        DOCKER_BUILDKIT = "1"
+        EC2_PROD_IP = '18.234.204.218'
+        // DOCKER_CLI_EXPERIMENTAL = "enabled"
+        // DOCKER_BUILDKIT = "1"
     }
 
     tools {
@@ -46,21 +46,19 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 echo '🔍 Skipping SonarQube analysis...'
-                // // Commented out SonarQube analysis
-                // /*
+                
                 // withSonarQubeEnv('SonarQube') {
                 //     sh 'npm install -g sonarqube-scanner'
                 //     sh 'sonar-scanner -Dsonar.projectKey=todo-app -Dsonar.sources=. -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js -Dsonar.tests=. -Dsonar.test.inclusions=**/*.test.js -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml'
                 // }
-                // */
+                
             }
         }
 
         stage('Quality Gate') {
             steps {
                 echo '✅ Skipping Quality Gate check...'
-                // // Commented out Quality Gate check
-                // /*
+                
                 // script {
                 //     def taskId = sh(script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4', returnStdout: true).trim()
                 //     echo "SonarQube Task ID: ${taskId}"
@@ -82,7 +80,7 @@ pipeline {
                 //         waitForQualityGate abortPipeline: true
                 //     }
                 // }
-                // */
+                
             }
         }
 
