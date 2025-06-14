@@ -60,12 +60,12 @@ pipeline {
                 echo 'Quality Gate check...'
                 
                 script {
-                    def taskId = sh(script: 'curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4', returnStdout: true).trim()
+                    def taskId = sh(script: 'curl -s -u admin:admin http://192.168.1.15:9000/api/ce/task?component=todo-app | grep -o \'"id":"[^"]*"\' | cut -d\'"\' -f4', returnStdout: true).trim()
                     echo "SonarQube Task ID: ${taskId}"
                     def maxAttempts = 1
                     def attempt = 0
                     while (attempt < maxAttempts) {
-                        def taskStatus = sh(script: "curl -s -u admin:admin http://192.168.1.6:9000/api/ce/task?id=${taskId}", returnStdout: true).trim()
+                        def taskStatus = sh(script: "curl -s -u admin:admin http://192.168.1.15:9000/api/ce/task?id=${taskId}", returnStdout: true).trim()
                         echo "Attempt ${attempt + 1}/${maxAttempts} - Task Status: ${taskStatus}"
                         if (taskStatus.contains('"status":"SUCCESS"')) {
                             echo "✅ SonarQube analysis completed successfully"
