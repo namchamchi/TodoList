@@ -59,7 +59,7 @@ pipeline {
             steps {
                         script {
             echo "🔍 Waiting for SonarQube Quality Gate..."
-            timeout(time: 5, unit: 'MINUTES') {
+            timeout(time: 1, unit: 'MINUTES') {
                 def qg = waitForQualityGate abortPipeline: true
                 echo "✅ Quality Gate status: ${qg.status}"
             }
