@@ -9,7 +9,7 @@ pipeline {
         EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
         SONAR_HOST_URL = 'http://192.168.1.15:9000' 
         SONAR_TOKEN = credentials('sonar-token-1')
-        EC2_PROD_IP = '2-3-83-152-121'
+        EC2_PROD_IP = '3.83.152.121'
         // DOCKER_CLI_EXPERIMENTAL = "enabled"
         // DOCKER_BUILDKIT = "1"
     }
@@ -57,9 +57,13 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                        script {
+            echo "🔍 Waiting for SonarQube Quality Gate..."
+            timeout(time: 5, unit: 'MINUTES') {
+                def qg = waitForQualityGate abortPipeline: true
+                echo "✅ Quality Gate status: ${qg.status}"
+            }
+        }
                 // echo 'Quality Gate check...'
                 
                 // script {
