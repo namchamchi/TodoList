@@ -12,10 +12,10 @@ app.use((req, res, next) => {
 });
 
 // Lỗi cơ bản cho SonarQube phát hiện
-var x = 10;  // Sử dụng var thay vì const/let
-if (x == "10") {  // Sử dụng == thay vì ===
-    console.log("x is 10");
-}
+// var x = 10;  // Sử dụng var thay vì const/let
+// if (x == "10") {  // Sử dụng == thay vì ===
+//     console.log("x is 10");
+// }
 
 app.use(express.json());
 app.use(express.static('public')); // Serve static files from public directory
