@@ -10,8 +10,7 @@ pipeline {
         SONAR_HOST_URL = 'http://192.168.1.15:9000' 
         SONAR_TOKEN = credentials('sonar-token-1')
         EC2_PROD_IP = '3.83.152.121'
-        // DOCKER_CLI_EXPERIMENTAL = "enabled"
-        // DOCKER_BUILDKIT = "1"
+
     }
 
     tools {
@@ -19,31 +18,18 @@ pipeline {
     }
 
     stages {
-        // stage('Checkout') {
-        //     steps {
-        //         echo '🌀 Cloning repository...'
-        //         checkout scm
-        //     }
-        // }
 
-        // stage('Build and Test') {
-        //     parallel {
-        stage('Build, Test and Analysis') {
-            parallel {
-                stage('Install and Test') {
-                    stages {
-                        stage('Install Dependencies') {
-                            steps {
-                                echo '📦 Installing dependencies...'
-                                sh 'npm install'
-                            }
-                        }
-                        stage('Run Tests') {
-                            steps {
-                                echo '🧪 Running tests...'
-                                sh 'npm test'
-                            }
-                        }
+
+                stage('Install Dependencies') {
+                    steps {
+                        echo '📦 Installing dependencies...'
+                        sh 'npm install'
+                    }
+                }
+                stage('Run Tests') {
+                    steps {
+                        echo '🧪 Running tests...'
+                        sh 'npm test'
                     }
                 }
                 stage('SonarQube Analysis') {
@@ -55,9 +41,6 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
-
         stage('Quality Gate') {
             steps {
                 timeout(time: 1, unit: 'MINUTES') {
@@ -100,7 +83,7 @@ pipeline {
 
         stage('Deploy to Staging') {
             steps {
-                echo '🚀 Deploying to staging...'
+                echo 'Deploying to staging...'
                 sh '''
                     # Pull latest image
                     docker pull namchamchi/todo-app:${DOCKER_TAG}
@@ -144,7 +127,7 @@ pipeline {
 
         stage('Deploy to Production') {
             steps {
-                echo '🚀 Deploying to production EC2...'
+                echo 'Deploying to production EC2...'
                 script {
                     try {
                         // Lưu thông tin image hiện tại trước khi deploy
@@ -159,10 +142,10 @@ pipeline {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                     set -e
-                                    echo "🐳 Pulling latest Docker image..."
+                                    echo "Pulling latest Docker image..."
                                     docker pull namchamchi/todo-app:${DOCKER_TAG}
 
-                                    echo "🛑 Stopping old container if exists..."
+                                    echo "Stopping old container if exists..."
                                     docker stop todo-app || true
                                     docker rm todo-app || true
 
@@ -173,12 +156,12 @@ pipeline {
                                         --restart unless-stopped \
                                         namchamchi/todo-app:${DOCKER_TAG}
 
-                                    echo "✅ Deployment on EC2 done!"
+                                    echo "Deployment on EC2 done!"
                                 '
                             """
                         }
                     } catch (Exception e) {
-                        echo "❌ Deployment failed: ${e.message}"
+                        echo "Deployment failed: ${e.message}"
                         // Thực hiện rollback ngay lập tức
                         def rollbackTag = readFile('.rollback-tag').trim()
                         if (rollbackTag != 'none') {
@@ -214,7 +197,7 @@ pipeline {
                                             --restart unless-stopped \
                                             ${rollbackTag} || true
                                         
-                                        echo "✅ Rollback completed!"
+                                        echo "Rollback completed!"
                                     '
                                 """
                             }
