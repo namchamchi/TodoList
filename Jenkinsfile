@@ -2,15 +2,36 @@ pipeline {
     agent any
 
     environment {
+        // Application Settings
         NODE_ENV = 'development'
+        APP_NAME = 'todo-app'
+        APP_PORT = '3000'
+        
+        // Docker Configuration
         DOCKER_IMAGE = 'todo-app'
         DOCKER_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'docker.io'
-        EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
-        SONAR_HOST_URL = 'http://192.168.1.15:9000' 
-        SONAR_TOKEN = credentials('sonar-token-1')
+        DOCKER_REGISTRY_USER = 'namchamchi'
+        DOCKER_NETWORK = 'todo-network'
+        
+        // Server Configuration
+        STAGING_HOST = '10.0.2.15'
+        STAGING_PORT = '3000'
         EC2_PROD_IP = '3.83.152.121'
-
+        PROD_PORT = '80'
+        
+        // SonarQube Configuration
+        SONAR_HOST_URL = 'http://192.168.1.15:9000'
+        SONAR_TOKEN = credentials('sonar-token-1')
+        SONAR_PROJECT_KEY = 'todo-app'
+        
+        // Email Configuration
+        EMAIL_RECIPIENTS = 'covodoi09@gmail.com'
+        EMAIL_CC = 'covodoi01@gmail.com'
+        
+        // Deployment Configuration
+        ROLLBACK_FILE = '.rollback-tag'
+        HEALTH_CHECK_ENDPOINT = '/api/todos'
     }
 
     tools {
@@ -18,35 +39,44 @@ pipeline {
     }
 
     stages {
+        stage('Install Dependencies') {
+            steps {
+                echo '📦 Installing dependencies...'
+                sh 'npm install'
+            }
+        }
 
+        stage('Run Tests') {
+            steps {
+                echo '🧪 Running tests...'
+                sh 'npm test'
+            }
+        }
 
-                stage('Install Dependencies') {
-                    steps {
-                        echo '📦 Installing dependencies...'
-                        sh 'npm install'
-                    }
+        stage('SonarQube Analysis') {
+            steps {
+                echo '🔍 Running SonarQube analysis...'
+                withSonarQubeEnv('SonarQube') {
+                    sh 'npm install -g sonarqube-scanner'
+                    sh """
+                        sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.sources=. \
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                            -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                            -Dsonar.tests=. \
+                            -Dsonar.test.inclusions=**/*.test.js \
+                            -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                    """
                 }
-                stage('Run Tests') {
-                    steps {
-                        echo '🧪 Running tests...'
-                        sh 'npm test'
-                    }
-                }
-                stage('SonarQube Analysis') {
-                    steps {
-                        echo '🔍 Running SonarQube analysis...'
-                        withSonarQubeEnv('SonarQube') {
-                            sh 'npm install -g sonarqube-scanner'
-                            sh 'sonar-scanner -Dsonar.projectKey=todo-app -Dsonar.sources=. -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js -Dsonar.tests=. -Dsonar.test.inclusions=**/*.test.js -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml'
-                        }
-                    }
-                }
+            }
+        }
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 1, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
-                
             }
         }
 
@@ -54,7 +84,11 @@ pipeline {
             steps {
                 echo '🐳 Building Docker image...'
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'jenkins_dockerhub_token', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'jenkins_dockerhub_token', 
+                        passwordVariable: 'DOCKER_PASSWORD', 
+                        usernameVariable: 'DOCKER_USERNAME'
+                    )]) {
                         sh '''
                             echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
                             
@@ -70,10 +104,10 @@ pipeline {
                             # Build và push multi-arch image với cache
                             docker buildx build \
                                 --platform linux/amd64,linux/arm64 \
-                                --cache-from type=registry,ref=namchamchi/${DOCKER_IMAGE}:latest \
+                                --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
                                 --cache-to type=inline \
-                                -t namchamchi/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                                -t namchamchi/${DOCKER_IMAGE}:latest \
+                                -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
                                 --push .
                         '''
                     }
@@ -86,28 +120,28 @@ pipeline {
                 echo 'Deploying to staging...'
                 sh '''
                     # Pull latest image
-                    docker pull namchamchi/todo-app:${DOCKER_TAG}
+                    docker pull ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
                     # Stop and remove existing containers
-                    docker stop todo-app || true
-                    docker rm todo-app || true
+                    docker stop ${APP_NAME} || true
+                    docker rm ${APP_NAME} || true
 
                     # Create network if not exists
-                    docker network create todo-network || true
+                    docker network create ${DOCKER_NETWORK} || true
 
                     # Start new container
                     docker run -d \
-                        --name todo-app \
-                        -p 3000:3000 \
-                        --network todo-network \
+                        --name ${APP_NAME} \
+                        -p ${STAGING_PORT}:${APP_PORT} \
+                        --network ${DOCKER_NETWORK} \
                         --restart unless-stopped \
-                        namchamchi/todo-app:${DOCKER_TAG}
+                        ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
                     # Wait for application to be ready
                     sleep 10
 
                     # Verify deployment
-                    curl -f http://10.0.2.15:3000/api/todos || exit 1
+                    curl -f http://${STAGING_HOST}:${STAGING_PORT}${HEALTH_CHECK_ENDPOINT} || exit 1
                 '''
             }
         }
@@ -117,10 +151,10 @@ pipeline {
                 echo '🔍 Verifying staging deployment...'
                 sh '''
                     # Check container status
-                    docker ps | grep todo-app
+                    docker ps | grep ${APP_NAME}
 
                     # Check application health
-                    curl -f http://10.0.2.15:3000/api/todos || exit 1
+                    curl -f http://${STAGING_HOST}:${STAGING_PORT}${HEALTH_CHECK_ENDPOINT} || exit 1
                 '''
             }
         }
@@ -132,29 +166,29 @@ pipeline {
                     try {
                         // Lưu thông tin image hiện tại trước khi deploy
                         def currentImage = sh(
-                            script: 'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"',
+                            script: "docker inspect --format='{{.Config.Image}}' ${APP_NAME} || echo 'none'",
                             returnStdout: true
                         ).trim()
                         echo "🔁 Current running image: ${currentImage}"
-                        writeFile file: '.rollback-tag', text: currentImage
+                        writeFile file: env.ROLLBACK_FILE, text: currentImage
 
                         sshagent(['ec2-ssh']) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                     set -e
                                     echo "Pulling latest Docker image..."
-                                    docker pull namchamchi/todo-app:${DOCKER_TAG}
+                                    docker pull ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
                                     echo "Stopping old container if exists..."
-                                    docker stop todo-app || true
-                                    docker rm todo-app || true
+                                    docker stop ${APP_NAME} || true
+                                    docker rm ${APP_NAME} || true
 
                                     echo "🚀 Starting new container..."
                                     docker run -d \
-                                        --name todo-app \
-                                        -p 80:3000 \
+                                        --name ${APP_NAME} \
+                                        -p ${PROD_PORT}:${APP_PORT} \
                                         --restart unless-stopped \
-                                        namchamchi/todo-app:${DOCKER_TAG}
+                                        ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
 
                                     echo "Deployment on EC2 done!"
                                 '
@@ -163,20 +197,20 @@ pipeline {
                     } catch (Exception e) {
                         echo "Deployment failed: ${e.message}"
                         // Thực hiện rollback ngay lập tức
-                        def rollbackTag = readFile('.rollback-tag').trim()
+                        def rollbackTag = readFile(env.ROLLBACK_FILE).trim()
                         if (rollbackTag != 'none') {
                             echo "🔄 Rolling back to previous version: ${rollbackTag}"
                             
                             // Rollback staging environment
                             echo '🔄 Rolling back staging environment...'
                             sh """
-                                docker stop todo-app || true
-                                docker rm todo-app || true
+                                docker stop ${APP_NAME} || true
+                                docker rm ${APP_NAME} || true
                                 docker pull ${rollbackTag} || true
                                 docker run -d \
-                                    --name todo-app \
-                                    -p 3000:3000 \
-                                    --network todo-network \
+                                    --name ${APP_NAME} \
+                                    -p ${STAGING_PORT}:${APP_PORT} \
+                                    --network ${DOCKER_NETWORK} \
                                     --restart unless-stopped \
                                     ${rollbackTag} || true
                             """
@@ -188,12 +222,12 @@ pipeline {
                                     ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                         set -e
                                         echo "🔄 Rolling back to previous version: ${rollbackTag}"
-                                        docker stop todo-app || true
-                                        docker rm todo-app || true
+                                        docker stop ${APP_NAME} || true
+                                        docker rm ${APP_NAME} || true
                                         docker pull ${rollbackTag} || true
                                         docker run -d \
-                                            --name todo-app \
-                                            -p 80:3000 \
+                                            --name ${APP_NAME} \
+                                            -p ${PROD_PORT}:${APP_PORT} \
                                             --restart unless-stopped \
                                             ${rollbackTag} || true
                                         
@@ -215,13 +249,10 @@ pipeline {
             steps {
                 echo '🔍 Verifying production deployment...'
                 script {
-                    sh '''
-                        curl -f http://${EC2_PROD_IP}/api/todos || exit 1
-                    '''
+                    sh "curl -f http://${EC2_PROD_IP}${HEALTH_CHECK_ENDPOINT} || exit 1"
                 }
             }
         }
-
     }
 
     post {
@@ -231,7 +262,10 @@ pipeline {
                 def deploymentStatus = ''
                 
                 try {
-                    deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
+                    deploymentStatus = sh(
+                        script: "docker ps | grep ${APP_NAME}", 
+                        returnStdout: true
+                    ).trim()
                 } catch (Exception e) {
                     deploymentStatus = 'No deployment status available'
                 }
@@ -257,8 +291,8 @@ pipeline {
                 """
 
                 mail(
-                    to: "${env.EMAIL_RECIPIENTS}",
-                    cc: 'covodoi01@gmail.com',
+                    to: env.EMAIL_RECIPIENTS,
+                    cc: env.EMAIL_CC,
                     subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
                     body: emailBody,
                     mimeType: 'text/html'
