@@ -54,8 +54,8 @@ pipeline {
         }
 
 
-        stage('Test & Build Parallel') {
-            parallel {
+        // stage('Test & Build Parallel') {
+        //     parallel {
 
                 stage('SonarQube Analysis') {
                     steps {
@@ -99,8 +99,8 @@ pipeline {
                         }
                     }
                 }
-            }
-        }
+        //     }
+        // }
 
         // Chỉ Quality Gate — build image đã xong ở bước trên!
         stage('Quality Gate') {
