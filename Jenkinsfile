@@ -105,7 +105,7 @@ pipeline {
                 // }
 
                 // Comment out buildx for testing
-                stage('Build Docker Image (Multi-platform)') {
+                stage('Build Docker Image') {
                     steps {
                         echo '🐳 Building Docker image with buildx...'
                         script {
