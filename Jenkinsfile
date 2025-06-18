@@ -136,6 +136,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
+                echo 'Quality Gate'
                 // timeout(time: 1, unit: 'MINUTES') {
                 //     waitForQualityGate abortPipeline: true
                 // }
