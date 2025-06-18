@@ -62,52 +62,24 @@ pipeline {
                 stage('SonarQube Analysis') {
                     steps {
                         echo '🔍 Running SonarQube analysis...'
-                        // withSonarQubeEnv('SonarQube') {
-                        //     sh '''
-                        //         sonar-scanner \
-                        //             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        //             -Dsonar.sources=. \
-                        //             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                        //             -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
-                        //             -Dsonar.tests=. \
-                        //             -Dsonar.test.inclusions=**/*.test.js \
-                        //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
-                        //     '''
-                        // }
+                        withSonarQubeEnv('SonarQube') {
+                            sh '''
+                                sonar-scanner \
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                    -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                                    -Dsonar.tests=. \
+                                    -Dsonar.test.inclusions=**/*.test.js \
+                                    -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                            '''
+                        }
                     }
                 }
 
-                // stage('Build Docker Image') {
-                //     steps {
-                //         echo '🐳 Building Docker image...'
-                //         script {
-                //             withCredentials([usernamePassword(
-                //                 credentialsId: 'jenkins_dockerhub_token',
-                //                 passwordVariable: 'DOCKER_PASSWORD',
-                //                 usernameVariable: 'DOCKER_USERNAME'
-                //             )]) {
-                //                 sh '''
-                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                                    
-                //                     # Standard Docker build (single platform)
-                //                     docker build \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         .
-                                    
-                //                     # Push to registry
-                //                     docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                //                     docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest
-                //                 '''
-                //             }
-                //         }
-                //     }
-                // }
-
-                // Comment out buildx for testing
                 stage('Build Docker Image') {
                     steps {
-                        echo '🐳 Building Docker image with buildx...'
+                        echo '🐳 Building Docker image...'
                         script {
                             withCredentials([usernamePassword(
                                 credentialsId: 'jenkins_dockerhub_token',
@@ -116,30 +88,58 @@ pipeline {
                             )]) {
                                 sh '''
                                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                                    docker buildx rm mybuilder || true
-                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
-                                    docker buildx inspect --bootstrap
-                                    docker buildx build \
-                                        --platform linux/amd64,linux/arm64 \
-                                        --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        --cache-to type=inline \
+                                    
+                                    # Standard Docker build (single platform)
+                                    docker build \
                                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
                                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        --push .
+                                        .
+                                    
+                                    # Push to registry
+                                    docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                                    docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest
                                 '''
                             }
                         }
                     }
-                }   
+                }
+
+                // Comment out buildx for testing
+                // stage('Build Docker Image') {
+                //     steps {
+                //         echo '🐳 Building Docker image with buildx...'
+                //         script {
+                //             withCredentials([usernamePassword(
+                //                 credentialsId: 'jenkins_dockerhub_token',
+                //                 passwordVariable: 'DOCKER_PASSWORD',
+                //                 usernameVariable: 'DOCKER_USERNAME'
+                //             )]) {
+                //                 sh '''
+                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                //                     docker buildx rm mybuilder || true
+                //                     docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
+                //                     docker buildx inspect --bootstrap
+                //                     docker buildx build \
+                //                         --platform linux/amd64,linux/arm64 \
+                //                         --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                //                         --cache-to type=inline \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                //                         --push .
+                //                 '''
+                //             }
+                //         }
+                //     }
+                // }   
             }
         }
 
         stage('Quality Gate') {
             steps {
                 echo 'Quality Gate'
-                // timeout(time: 1, unit: 'MINUTES') {
-                //     waitForQualityGate abortPipeline: true
-                // }
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
