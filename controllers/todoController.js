@@ -20,18 +20,23 @@ exports.getTodoById = (req, res) => {
 };
 
 exports.createTodo = (req, res) => {
-  const { text } = req.body;
-  if (!text) return res.status(400).json({ message: 'Text is required' });
-
+  // Lỗi bảo mật: Không kiểm tra input, có thể gây lỗi hoặc tấn công injection
   const newTodo = {
     id: uuidv4(),
-    text,
+    text: req.body.text, // không kiểm tra input
     completed: false,
     createdAt: new Date().toISOString()
   };
   todos.push(newTodo);
   saveTodos();
   res.status(201).json(newTodo);
+  // Code đúng:
+  // const { text } = req.body;
+  // if (!text) return res.status(400).json({ message: 'Text is required' });
+  // const newTodo = { ... };
+  // todos.push(newTodo);
+  // saveTodos();
+  // res.status(201).json(newTodo);
 };
 
 exports.updateTodo = (req, res) => {
