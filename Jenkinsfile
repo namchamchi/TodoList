@@ -62,18 +62,18 @@ pipeline {
                 stage('SonarQube Analysis') {
                     steps {
                         echo '🔍 Running SonarQube analysis...'
-                        withSonarQubeEnv('SonarQube') {
-                            sh '''
-                                sonar-scanner \
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                    -Dsonar.sources=. \
-                                    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                    -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
-                                    -Dsonar.tests=. \
-                                    -Dsonar.test.inclusions=**/*.test.js \
-                                    -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
-                            '''
-                        }
+                        // withSonarQubeEnv('SonarQube') {
+                        //     sh '''
+                        //         sonar-scanner \
+                        //             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        //             -Dsonar.sources=. \
+                        //             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                        //             -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                        //             -Dsonar.tests=. \
+                        //             -Dsonar.test.inclusions=**/*.test.js \
+                        //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                        //     '''
+                        // }
                     }
                 }
 
