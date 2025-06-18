@@ -17,7 +17,7 @@ pipeline {
         // Server Configuration
         STAGING_HOST = '10.0.2.15'
         STAGING_PORT = '3000'
-        EC2_PROD_IP = '3.83.152.121'
+        EC2_PROD_IP = '18.208.183.86'
         PROD_PORT = '80'
         
         // SonarQube Configuration
@@ -32,6 +32,10 @@ pipeline {
         // Deployment Configuration
         ROLLBACK_FILE = '.rollback-tag'
         HEALTH_CHECK_ENDPOINT = '/api/todos'
+        
+        // Timeout Configuration
+        HEALTH_CHECK_TIMEOUT = '60'
+        DEPLOYMENT_TIMEOUT = '300'
     }
 
     tools {
@@ -53,22 +57,22 @@ pipeline {
             }
         }
 
-
-        // stage('Test & Build Parallel') {
-        //     parallel {
-
+        stage('Test & Build Parallel') {
+            parallel {
                 stage('SonarQube Analysis') {
                     steps {
                         echo '🔍 Running SonarQube analysis...'
                         withSonarQubeEnv('SonarQube') {
-                            sh 'sonar-scanner \
-                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                -Dsonar.sources=. \
-                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
-                                -Dsonar.tests=. \
-                                -Dsonar.test.inclusions=**/*.test.js \
-                                -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml'
+                            sh '''
+                                sonar-scanner \
+                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                    -Dsonar.sources=. \
+                                    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                    -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                                    -Dsonar.tests=. \
+                                    -Dsonar.test.inclusions=**/*.test.js \
+                                    -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                            '''
                         }
                     }
                 }
@@ -99,10 +103,9 @@ pipeline {
                         }
                     }
                 }
-        //     }
-        // }
+            }
+        }
 
-        // Chỉ Quality Gate — build image đã xong ở bước trên!
         stage('Quality Gate') {
             steps {
                 timeout(time: 1, unit: 'MINUTES') {
@@ -114,28 +117,112 @@ pipeline {
         stage('Deploy to Staging') {
             steps {
                 echo '🚀 Deploying to staging...'
-                // deploy như cũ
+                script {
+                    try {
+                        sh '''
+                            # Pull latest image
+                            docker pull namchamchi/todo-app:${DOCKER_TAG}
+
+                            # Stop and remove existing containers
+                            docker stop todo-app || true
+                            docker rm todo-app || true
+
+                            # Create network if not exists
+                            docker network create todo-network || true
+
+                            # Start new container
+                            docker run -d \
+                                --name todo-app \
+                                -p 3000:3000 \
+                                --network todo-network \
+                                --restart unless-stopped \
+                                namchamchi/todo-app:${DOCKER_TAG}
+
+                            # Wait for application to be ready with timeout
+                            timeout ${HEALTH_CHECK_TIMEOUT} bash -c '
+                                until curl -f http://${STAGING_HOST}:${STAGING_PORT}${HEALTH_CHECK_ENDPOINT}; do
+                                    echo "Waiting for application to be ready..."
+                                    sleep 5
+                                done
+                            '
+                        '''
+                    } catch (Exception e) {
+                        echo "❌ Staging deployment failed: ${e.message}"
+                        throw e
+                    }
+                }
             }
         }
 
         stage('Verify Staging') {
             steps {
-                echo '✅ Verifying staging...'
-                // verify như cũ
+                echo '🔍 Verifying staging deployment...'
+                script {
+                    sh '''
+                        # Check container status
+                        docker ps | grep todo-app
+
+                        # Check application health
+                        curl -f http://${STAGING_HOST}:${STAGING_PORT}${HEALTH_CHECK_ENDPOINT} || exit 1
+                    '''
+                }
             }
         }
 
         stage('Deploy to Production') {
             steps {
-                echo '🚀 Deploying to production...'
-                // deploy như cũ
+                echo '🚀 Deploying to production EC2...'
+                script {
+                    try {
+                        // Lưu thông tin image hiện tại trước khi deploy
+                        def currentImage = sh(
+                            script: 'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"',
+                            returnStdout: true
+                        ).trim()
+                        echo "🔁 Current running image: ${currentImage}"
+                        writeFile file: ROLLBACK_FILE, text: currentImage
+
+                        sshagent(['ec2-ssh']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
+                                    set -e
+                                    echo "🐳 Pulling latest Docker image..."
+                                    docker pull namchamchi/todo-app:${DOCKER_TAG}
+
+                                    echo "🛑 Stopping old container if exists..."
+                                    docker stop todo-app || true
+                                    docker rm todo-app || true
+
+                                    echo "🚀 Starting new container..."
+                                    docker run -d \
+                                        --name todo-app \
+                                        -p ${PROD_PORT}:3000 \
+                                        --restart unless-stopped \
+                                        namchamchi/todo-app:${DOCKER_TAG}
+
+                                    echo "✅ Deployment on EC2 done!"
+                                '
+                            """
+                        }
+                    } catch (Exception e) {
+                        echo "❌ Deployment failed: ${e.message}"
+                        // Thực hiện rollback ngay lập tức
+                        performRollback()
+                        // Ném lại exception để đánh dấu stage thất bại
+                        throw e
+                    }
+                }
             }
         }
 
         stage('Verify Production') {
             steps {
-                echo '✅ Verifying production...'
-                // verify như cũ
+                echo '🔍 Verifying production deployment...'
+                script {
+                    sh '''
+                        curl -f http://${EC2_PROD_IP}:${PROD_PORT}${HEALTH_CHECK_ENDPOINT} || exit 1
+                    '''
+                }
             }
         }
     }
@@ -143,7 +230,103 @@ pipeline {
     post {
         always {
             echo '🧹 Cleaning up...'
-            // Cleanup & Email như cũ
+            script {
+                def deploymentStatus = ''
+                
+                try {
+                    deploymentStatus = sh(script: 'docker ps | grep todo-app', returnStdout: true).trim()
+                } catch (Exception e) {
+                    deploymentStatus = 'No deployment status available'
+                }
+
+                def emailBody = """
+                    <p>Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'</p>
+                    <p>Check console output at <a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a></p>
+                    <p>Build URL: ${env.BUILD_URL}</p>
+                    <p>Build Number: ${env.BUILD_NUMBER}</p>
+                    <p>Build Status: ${currentBuild.currentResult}</p>
+                    <p>Changes:</p>
+                    <ul>
+                        ${currentBuild.changeSets.collect { changeSet ->
+                            changeSet.items.collect { item ->
+                                "<li>${item.commitId} - ${item.msg} (${item.author.fullName})</li>"
+                            }.join('')
+                        }.join('')}
+                    </ul>
+                    <p>Test Results:</p>
+                    <pre>${currentBuild.description ?: 'No test results available'}</pre>
+                    <p>Deployment Status:</p>
+                    <pre>${deploymentStatus}</pre>
+                """
+
+                mail(
+                    to: "${env.EMAIL_RECIPIENTS}",
+                    cc: "${env.EMAIL_CC}",
+                    subject: "Pipeline ${currentBuild.result}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+                    body: emailBody,
+                    mimeType: 'text/html'
+                )
+            }
+        }
+        success {
+            echo '✅ Build and deployment completed successfully!'
+        }
+        failure {
+            echo '❌ Build or deployment failed.'
+        }
+        aborted {
+            echo '⚠️ Build was aborted!'
+        }
+    }
+}
+
+// Helper function for rollback
+def performRollback() {
+    script {
+        try {
+            def rollbackTag = readFile(ROLLBACK_FILE).trim()
+            if (rollbackTag != 'none') {
+                echo "🔄 Rolling back to previous version: ${rollbackTag}"
+                
+                // Rollback staging environment
+                echo '🔄 Rolling back staging environment...'
+                sh """
+                    docker stop todo-app || true
+                    docker rm todo-app || true
+                    docker pull ${rollbackTag} || true
+                    docker run -d \
+                        --name todo-app \
+                        -p ${STAGING_PORT}:3000 \
+                        --network ${DOCKER_NETWORK} \
+                        --restart unless-stopped \
+                        ${rollbackTag} || true
+                """
+                
+                // Rollback production environment
+                echo '🔄 Rolling back production environment...'
+                sshagent(['ec2-ssh']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
+                            set -e
+                            echo "🔄 Rolling back to previous version: ${rollbackTag}"
+                            docker stop todo-app || true
+                            docker rm todo-app || true
+                            docker pull ${rollbackTag} || true
+                            docker run -d \
+                                --name todo-app \
+                                -p ${PROD_PORT}:3000 \
+                                --restart unless-stopped \
+                                ${rollbackTag} || true
+                            
+                            echo "✅ Rollback completed!"
+                        '
+                    """
+                }
+            } else {
+                echo "⚠️ No previous version available for rollback"
+            }
+        } catch (Exception e) {
+            echo "❌ Rollback failed: ${e.message}"
         }
     }
 }
