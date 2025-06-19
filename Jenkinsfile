@@ -106,7 +106,7 @@ pipeline {
 
 
 //for test no cache
-                stage('Build Docker Image (No Cache)') {
+                stage('Build Docker Image') {
                     steps {
                         echo '🐳 Building Docker image with buildx (no cache)...'
                         script {
