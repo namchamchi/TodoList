@@ -77,32 +77,32 @@ pipeline {
                     }
                 }
 
-                stage('Build Docker Image') {
-                    steps {
-                        echo '🐳 Building Docker image...'
-                        script {
-                            withCredentials([usernamePassword(
-                                credentialsId: 'jenkins_dockerhub_token',
-                                passwordVariable: 'DOCKER_PASSWORD',
-                                usernameVariable: 'DOCKER_USERNAME'
-                            )]) {
-                                sh '''
-                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                // stage('Build Docker Image') {
+                //     steps {
+                //         echo '🐳 Building Docker image...'
+                //         script {
+                //             withCredentials([usernamePassword(
+                //                 credentialsId: 'jenkins_dockerhub_token',
+                //                 passwordVariable: 'DOCKER_PASSWORD',
+                //                 usernameVariable: 'DOCKER_USERNAME'
+                //             )]) {
+                //                 sh '''
+                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
                                     
-                                    # Standard Docker build (single platform)
-                                    docker build \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        .
+                //                     # Standard Docker build (single platform)
+                //                     docker build \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                //                         .
                                     
-                                    # Push to registry
-                                    docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
-                                    docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest
-                                '''
-                            }
-                        }
-                    }
-                }
+                //                     # Push to registry
+                //                     docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                //                     docker push ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest
+                //                 '''
+                //             }
+                //         }
+                //     }
+                // }
 
                 // Comment out buildx for testing
                 stage('Build Docker Image') {
