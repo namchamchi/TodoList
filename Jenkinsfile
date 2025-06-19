@@ -205,10 +205,13 @@ pipeline {
                     try {
                         // Lưu thông tin image hiện tại trước khi deploy
                         def currentImage = sh(
-                            script: 'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"',
+                            script: """
+                                ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} \\
+                                'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"'
+                            """,
                             returnStdout: true
                         ).trim()
-                        echo "🔁 Current running image: ${currentImage}"
+                        echo "🔁 Current running image on EC2: ${currentImage}"
                         writeFile file: ROLLBACK_FILE, text: currentImage
 
                         sshagent(['ec2-ssh']) {
