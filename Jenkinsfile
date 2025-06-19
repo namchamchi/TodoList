@@ -105,32 +105,32 @@ pipeline {
                 }
 
                 // Comment out buildx for testing
-                // stage('Build Docker Image') {
-                //     steps {
-                //         echo '🐳 Building Docker image with buildx...'
-                //         script {
-                //             withCredentials([usernamePassword(
-                //                 credentialsId: 'jenkins_dockerhub_token',
-                //                 passwordVariable: 'DOCKER_PASSWORD',
-                //                 usernameVariable: 'DOCKER_USERNAME'
-                //             )]) {
-                //                 sh '''
-                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                //                     docker buildx rm mybuilder || true
-                //                     docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
-                //                     docker buildx inspect --bootstrap
-                //                     docker buildx build \
-                //                         --platform linux/amd64,linux/arm64 \
-                //                         --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         --cache-to type=inline \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         --push .
-                //                 '''
-                //             }
-                //         }
-                //     }
-                // }   
+                stage('Build Docker Image') {
+                    steps {
+                        echo '🐳 Building Docker image with buildx...'
+                        script {
+                            withCredentials([usernamePassword(
+                                credentialsId: 'jenkins_dockerhub_token',
+                                passwordVariable: 'DOCKER_PASSWORD',
+                                usernameVariable: 'DOCKER_USERNAME'
+                            )]) {
+                                sh '''
+                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                                    docker buildx rm mybuilder || true
+                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
+                                    docker buildx inspect --bootstrap
+                                    docker buildx build \
+                                        --platform linux/amd64,linux/arm64 \
+                                        --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --cache-to type=inline \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --push .
+                                '''
+                            }
+                        }
+                    }
+                }   
             }
         }
 
