@@ -203,18 +203,17 @@ pipeline {
                 echo '🚀 Deploying to production EC2...'
                 script {
                     try {
-                        // Lưu thông tin image hiện tại trước khi deploy
-                        def currentImage = sh(
-                            script: """
-                                ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} \\
-                                'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"'
-                            """,
-                            returnStdout: true
-                        ).trim()
-                        echo "🔁 Current running image on EC2: ${currentImage}"
-                        writeFile file: ROLLBACK_FILE, text: currentImage
-
                         sshagent(['ec2-ssh']) {
+                            def currentImage = sh(
+                                script: """
+                                    ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} \\
+                                    'docker inspect --format="{{.Config.Image}}" todo-app || echo "none"'
+                                """,
+                                returnStdout: true
+                            ).trim()
+                            echo "🔁 Current running image on EC2: ${currentImage}"
+                            writeFile file: ROLLBACK_FILE, text: currentImage
+
                             sh """
                                 ssh -o StrictHostKeyChecking=no ec2-user@${EC2_PROD_IP} '
                                     set -e
