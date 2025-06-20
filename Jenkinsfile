@@ -21,7 +21,7 @@ pipeline {
         PROD_PORT = '80'
         
         // SonarQube Configuration
-        SONAR_HOST_URL = 'http://192.168.1.15:9000'
+        SONAR_HOST_URL = 'http://172.20.10.2:9000'
         SONAR_TOKEN = credentials('sonar-token-1')
         SONAR_PROJECT_KEY = 'todo-app'
         
@@ -76,7 +76,7 @@ pipeline {
                         }
                     }
                 }
-//for test rollback
+                //for test rollback
                 // stage('Build Docker Image') {
                 //     steps {
                 //         echo '🐳 Building Docker image...'
@@ -105,38 +105,10 @@ pipeline {
                 // }
 
 
-//for test no cache
-                stage('Build Docker Image') {
-                    steps {
-                        echo '🐳 Building Docker image with buildx (no cache)...'
-                        script {
-                            withCredentials([usernamePassword(
-                                credentialsId: 'jenkins_dockerhub_token',
-                                passwordVariable: 'DOCKER_PASSWORD',
-                                usernameVariable: 'DOCKER_USERNAME'
-                            )]) {
-                                sh '''
-                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                                    docker buildx rm mybuilder || true
-                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
-                                    docker buildx inspect --bootstrap
-                                    docker buildx build \
-                                        --platform linux/amd64,linux/arm64 \
-                                        --no-cache \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        --push .
-                                '''
-                            }
-                        }
-                    }
-                }
-
-
-                // Comment out buildx for testing
+                //for test no cache
                 // stage('Build Docker Image') {
                 //     steps {
-                //         echo '🐳 Building Docker image with buildx...'
+                //         echo '🐳 Building Docker image with buildx (no cache)...'
                 //         script {
                 //             withCredentials([usernamePassword(
                 //                 credentialsId: 'jenkins_dockerhub_token',
@@ -150,8 +122,7 @@ pipeline {
                 //                     docker buildx inspect --bootstrap
                 //                     docker buildx build \
                 //                         --platform linux/amd64,linux/arm64 \
-                //                         --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         --cache-to type=inline \
+                //                         --no-cache \
                 //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
                 //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
                 //                         --push .
@@ -159,7 +130,36 @@ pipeline {
                 //             }
                 //         }
                 //     }
-                // }   
+                // }
+
+
+               // Comment out buildx for testing
+                stage('Build Docker Image') {
+                    steps {
+                        echo '🐳 Building Docker image with buildx...'
+                        script {
+                            withCredentials([usernamePassword(
+                                credentialsId: 'jenkins_dockerhub_token',
+                                passwordVariable: 'DOCKER_PASSWORD',
+                                usernameVariable: 'DOCKER_USERNAME'
+                            )]) {
+                                sh '''
+                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                                    docker buildx rm mybuilder || true
+                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
+                                    docker buildx inspect --bootstrap
+                                    docker buildx build \
+                                        --platform linux/amd64,linux/arm64 \
+                                        --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --cache-to type=inline \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --push .
+                                '''
+                            }
+                        }
+                    }
+                }   
             }
         }
 
