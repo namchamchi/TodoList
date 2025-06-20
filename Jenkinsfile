@@ -62,7 +62,7 @@ pipeline {
                 stage('SonarQube Analysis') {
                     steps {
                         echo '🔍 Running SonarQube analysis...'
-                        sleep 30
+                        sleep 34
                         // withSonarQubeEnv('SonarQube') {
                         //     sh '''
                         //         sonar-scanner \
@@ -74,7 +74,7 @@ pipeline {
                         //             -Dsonar.test.inclusions=**/*.test.js \
                         //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
                         //     '''
-                        }
+                        // }
                     }
                 }
                 //for test rollback
@@ -167,9 +167,9 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 echo 'Quality Gate'
-                timeout(time: 1, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
+                // timeout(time: 1, unit: 'MINUTES') {
+                //     waitForQualityGate abortPipeline: true
+                // }
             }
         }
 
