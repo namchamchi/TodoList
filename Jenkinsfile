@@ -62,19 +62,24 @@ pipeline {
                 stage('SonarQube Analysis') {
                     steps {
                         echo '🔍 Running SonarQube analysis...'
-                        sleep 34
-                        // withSonarQubeEnv('SonarQube') {
-                        //     sh '''
-                        //         sonar-scanner \
-                        //             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        //             -Dsonar.sources=. \
-                        //             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                        //             -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
-                        //             -Dsonar.tests=. \
-                        //             -Dsonar.test.inclusions=**/*.test.js \
-                        //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
-                        //     '''
-                        // }
+                        script {
+                            sleep 5
+                            withCpuThreshold(threshold: 80, timeout: 300, interval: 10) {
+                                // sleep 36
+                                // withSonarQubeEnv('SonarQube') {
+                                //     sh '''
+                                //         sonar-scanner \
+                                //             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                //             -Dsonar.sources=. \
+                                //             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                //             -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                                //             -Dsonar.tests=. \
+                                //             -Dsonar.test.inclusions=**/*.test.js \
+                                //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                                //     '''
+                                // }
+                            }
+                        }
                     }
                 }
                 //for test rollback
@@ -107,37 +112,9 @@ pipeline {
 
 
                 //for test no cache
-                // stage('Build Docker Image') {
-                //     steps {
-                //         echo '🐳 Building Docker image with buildx (no cache)...'
-                //         script {
-                //             withCredentials([usernamePassword(
-                //                 credentialsId: 'jenkins_dockerhub_token',
-                //                 passwordVariable: 'DOCKER_PASSWORD',
-                //                 usernameVariable: 'DOCKER_USERNAME'
-                //             )]) {
-                //                 sh '''
-                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                //                     docker buildx rm mybuilder || true
-                //                     docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
-                //                     docker buildx inspect --bootstrap
-                //                     docker buildx build \
-                //                         --platform linux/amd64,linux/arm64 \
-                //                         --no-cache \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         --push .
-                //                 '''
-                //             }
-                //         }
-                //     }
-                // }
-
-
-               // Comment out buildx for testing
                 stage('Build Docker Image') {
                     steps {
-                        echo '🐳 Building Docker image with buildx...'
+                        echo '🐳 Building Docker image with buildx (no cache)...'
                         script {
                             withCredentials([usernamePassword(
                                 credentialsId: 'jenkins_dockerhub_token',
@@ -151,8 +128,7 @@ pipeline {
                                     docker buildx inspect --bootstrap
                                     docker buildx build \
                                         --platform linux/amd64,linux/arm64 \
-                                        --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        --cache-to type=inline \
+                                        --no-cache \
                                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
                                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
                                         --push .
@@ -160,7 +136,36 @@ pipeline {
                             }
                         }
                     }
-                }   
+                }
+
+
+               // Comment out buildx for testing
+                // stage('Build Docker Image') {
+                //     steps {
+                //         echo '🐳 Building Docker image with buildx...'
+                //         script {
+                //             withCredentials([usernamePassword(
+                //                 credentialsId: 'jenkins_dockerhub_token',
+                //                 passwordVariable: 'DOCKER_PASSWORD',
+                //                 usernameVariable: 'DOCKER_USERNAME'
+                //             )]) {
+                //                 sh '''
+                //                     echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                //                     docker buildx rm mybuilder || true
+                //                     docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
+                //                     docker buildx inspect --bootstrap
+                //                     docker buildx build \
+                //                         --platform linux/amd64,linux/arm64 \
+                //                         --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                //                         --cache-to type=inline \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                //                         --push .
+                //                 '''
+                //             }
+                //         }
+                //     }
+                // }   
             }
         }
 
@@ -418,6 +423,33 @@ def performRollback() {
             echo "❌ Rollback failed: ${e.message}"
         }
     }
+}
+
+def withCpuThreshold(Map params = [:], Closure body) {
+    def threshold = params.get('threshold', 80)
+    def timeoutSec = params.get('timeout', 300)
+    def sleepSec = params.get('interval', 10)
+
+    int maxRetry = (int)(timeoutSec / sleepSec)
+
+    for (int i = 0; i < maxRetry; i++) {
+        def usage = sh(script: "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - \$8}'", returnStdout: true).trim()
+        def usageFloat = usage.toFloat()
+
+        echo "🔍 CPU hiện tại: ${usageFloat}% (lần thử ${i + 1}/${maxRetry})"
+
+        if (usageFloat < threshold) {
+            echo "✅ CPU ổn (${usageFloat}%) < ${threshold}%. Tiến hành chạy task..."
+            body()
+            return
+        } else {
+            def remaining = timeoutSec - (i + 1) * sleepSec
+            echo "⏳ CPU cao (${usageFloat}%). Đợi thêm ${sleepSec}s (còn ${remaining}s)..."
+            sleep sleepSec
+        }
+    }
+
+    error "❌ Quá thời gian ${timeoutSec}s mà CPU vẫn cao hơn ${threshold}%. Dừng tác vụ."
 }
 
 
