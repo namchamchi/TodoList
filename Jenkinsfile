@@ -17,11 +17,11 @@ pipeline {
         // Server Configuration
         STAGING_HOST = '10.0.2.15'
         STAGING_PORT = '3000'
-        EC2_PROD_IP = '18.208.183.86'
+        EC2_PROD_IP = '54.157.45.36'
         PROD_PORT = '80'
         
         // SonarQube Configuration
-        SONAR_HOST_URL = 'http://172.20.10.2:9000'
+        SONAR_HOST_URL = 'https://suitably-amused-walrus.ngrok-free.app'
         SONAR_TOKEN = credentials('sonar-token-1')
         SONAR_PROJECT_KEY = 'todo-app'
         
@@ -64,20 +64,20 @@ pipeline {
                         echo '🔍 Running SonarQube analysis...'
                         script {
                             sleep 5
-                            withCpuThreshold(threshold: 80, timeout: 300, interval: 10) {
+                            withResourceThreshold(cpuThreshold: 60, memThreshold: 60, timeout: 300, interval: 10) {
                                 // sleep 36
-                                // withSonarQubeEnv('SonarQube') {
-                                //     sh '''
-                                //         sonar-scanner \
-                                //             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                //             -Dsonar.sources=. \
-                                //             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                //             -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
-                                //             -Dsonar.tests=. \
-                                //             -Dsonar.test.inclusions=**/*.test.js \
-                                //             -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
-                                //     '''
-                                // }
+                                withSonarQubeEnv('SonarQube') {
+                                    sh '''
+                                        sonar-scanner \
+                                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                            -Dsonar.sources=. \
+                                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                            -Dsonar.exclusions=node_modules/**,coverage/**,**/*.test.js \
+                                            -Dsonar.tests=. \
+                                            -Dsonar.test.inclusions=**/*.test.js \
+                                            -Dsonar.javascript.jstest.reportsPaths=coverage/junit.xml
+                                    '''
+                                }
                             }
                         }
                     }
@@ -112,37 +112,9 @@ pipeline {
 
 
                 //for test no cache
-                stage('Build Docker Image') {
-                    steps {
-                        echo '🐳 Building Docker image with buildx (no cache)...'
-                        script {
-                            withCredentials([usernamePassword(
-                                credentialsId: 'jenkins_dockerhub_token',
-                                passwordVariable: 'DOCKER_PASSWORD',
-                                usernameVariable: 'DOCKER_USERNAME'
-                            )]) {
-                                sh '''
-                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                                    docker buildx rm mybuilder || true
-                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
-                                    docker buildx inspect --bootstrap
-                                    docker buildx build \
-                                        --platform linux/amd64,linux/arm64 \
-                                        --no-cache \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
-                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                                        --push .
-                                '''
-                            }
-                        }
-                    }
-                }
-
-
-               // Comment out buildx for testing
                 // stage('Build Docker Image') {
                 //     steps {
-                //         echo '🐳 Building Docker image with buildx...'
+                //         echo '🐳 Building Docker image with buildx (no cache)...'
                 //         script {
                 //             withCredentials([usernamePassword(
                 //                 credentialsId: 'jenkins_dockerhub_token',
@@ -156,8 +128,7 @@ pipeline {
                 //                     docker buildx inspect --bootstrap
                 //                     docker buildx build \
                 //                         --platform linux/amd64,linux/arm64 \
-                //                         --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
-                //                         --cache-to type=inline \
+                //                         --no-cache \
                 //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
                 //                         -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
                 //                         --push .
@@ -165,7 +136,36 @@ pipeline {
                 //             }
                 //         }
                 //     }
-                // }   
+                // }
+
+
+                // Comment out buildx for testing
+                stage('Build Docker Image') {
+                    steps {
+                        echo '🐳 Building Docker image with buildx...'
+                        script {
+                            withCredentials([usernamePassword(
+                                credentialsId: 'jenkins_dockerhub_token',
+                                passwordVariable: 'DOCKER_PASSWORD',
+                                usernameVariable: 'DOCKER_USERNAME'
+                            )]) {
+                                sh '''
+                                    echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                                    docker buildx rm mybuilder || true
+                                    docker buildx create --name mybuilder --use --driver docker-container --driver-opt network=host
+                                    docker buildx inspect --bootstrap
+                                    docker buildx build \
+                                        --platform linux/amd64,linux/arm64 \
+                                        --cache-from type=registry,ref=${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --cache-to type=inline \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:${DOCKER_TAG} \
+                                        -t ${DOCKER_REGISTRY_USER}/${DOCKER_IMAGE}:latest \
+                                        --push .
+                                '''
+                            }
+                        }
+                    }
+                }   
             }
         }
 
@@ -425,31 +425,34 @@ def performRollback() {
     }
 }
 
-def withCpuThreshold(Map params = [:], Closure body) {
-    def threshold = params.get('threshold', 80)
+def withResourceThreshold(Map params = [:], Closure body) {
+    def cpuThreshold = params.get('cpuThreshold', 80)
+    def memThreshold = params.get('memThreshold', 80)
     def timeoutSec = params.get('timeout', 300)
     def sleepSec = params.get('interval', 10)
 
     int maxRetry = (int)(timeoutSec / sleepSec)
 
     for (int i = 0; i < maxRetry; i++) {
-        def usage = sh(script: "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - \$8}'", returnStdout: true).trim()
-        def usageFloat = usage.toFloat()
+        def cpuUsage = sh(script: "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - \\$8}'", returnStdout: true).trim()
+        def memUsage = sh(script: "free | awk '/Mem:/ {print \\\$3/\\\$2 * 100.0}'", returnStdout: true).trim()
+        def cpuFloat = cpuUsage.toFloat()
+        def memFloat = memUsage.toFloat()
 
-        echo "🔍 CPU hiện tại: ${usageFloat}% (lần thử ${i + 1}/${maxRetry})"
+        echo "🔍 CPU hiện tại: ${cpuFloat}% | MEM hiện tại: ${memFloat}% (lần thử ${i + 1}/${maxRetry})"
 
-        if (usageFloat < threshold) {
-            echo "✅ CPU ổn (${usageFloat}%) < ${threshold}%. Tiến hành chạy task..."
+        if (cpuFloat < cpuThreshold && memFloat < memThreshold) {
+            echo "✅ CPU (${cpuFloat}%) < ${cpuThreshold}% & MEM (${memFloat}%) < ${memThreshold}%. Tiến hành chạy task..."
             body()
             return
         } else {
             def remaining = timeoutSec - (i + 1) * sleepSec
-            echo "⏳ CPU cao (${usageFloat}%). Đợi thêm ${sleepSec}s (còn ${remaining}s)..."
+            echo "⏳ Tài nguyên cao (CPU: ${cpuFloat}%, MEM: ${memFloat}%). Đợi thêm ${sleepSec}s (còn ${remaining}s)..."
             sleep sleepSec
         }
     }
 
-    error "❌ Quá thời gian ${timeoutSec}s mà CPU vẫn cao hơn ${threshold}%. Dừng tác vụ."
+    error "❌ Quá thời gian ${timeoutSec}s mà CPU hoặc MEM vẫn cao hơn ngưỡng cho phép. Dừng tác vụ."
 }
 
 
