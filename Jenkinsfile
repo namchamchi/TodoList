@@ -426,16 +426,16 @@ def performRollback() {
 }
 
 def withResourceThreshold(Map params = [:], Closure body) {
-    def cpuThreshold = params.get('cpuThreshold', 80)
-    def memThreshold = params.get('memThreshold', 80)
+    def cpuThreshold = params.get('cpuThreshold', 60)
+    def memThreshold = params.get('memThreshold', 60)
     def timeoutSec = params.get('timeout', 300)
     def sleepSec = params.get('interval', 10)
 
     int maxRetry = (int)(timeoutSec / sleepSec)
 
     for (int i = 0; i < maxRetry; i++) {
-        def cpuUsage = sh(script: "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - \\$8}'", returnStdout: true).trim()
-        def memUsage = sh(script: "free | awk '/Mem:/ {print \\\$3/\\\$2 * 100.0}'", returnStdout: true).trim()
+        def cpuUsage = sh(script: 'top -bn1 | grep "Cpu(s)" | awk \'{print 100 - $8}\'', returnStdout: true).trim()
+        def memUsage = sh(script: 'free | awk \'/Mem:/ {print $3/$2 * 100.0}\'', returnStdout: true).trim()
         def cpuFloat = cpuUsage.toFloat()
         def memFloat = memUsage.toFloat()
 
